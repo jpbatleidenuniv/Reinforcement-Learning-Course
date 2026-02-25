@@ -7,7 +7,8 @@ By Thomas Moerland
 """
 import matplotlib
 # matplotlib.use('Qt5Agg') # 'TkAgg'
-matplotlib.use('Agg')
+# matplotlib.use('Agg') # Not interactive
+matplotlib.use('TkAgg') # 'TkAgg'
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle,Circle,Arrow
