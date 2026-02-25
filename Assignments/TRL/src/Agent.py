@@ -19,7 +19,7 @@ class BaseAgent:
         self.Q_sa = np.zeros((n_states,n_actions))
         
     def select_action(self, s, policy='egreedy', epsilon=None, temp=None):
-        
+        a=0
         if policy == 'greedy':
             # TO DO: Add own code
             a = np.random.randint(0,self.n_actions) # Replace this with correct action selection
@@ -29,15 +29,24 @@ class BaseAgent:
                 raise KeyError("Provide an epsilon")
                 
             # TO DO: Add own code
-            a = np.random.randint(0,self.n_actions) # Replace this with correct action selection
+
+            Q_si = self.Q_sa[s] # Q_a table of the current state
+
+            random = bool(np.random.choice([0, 1], size=1, p=[1-epsilon, epsilon])) # Choose with a probability epsilon to take a random action     
+            if random: 
+                a = np.random.choice(range(len(Q_si)), size=1)
+            else:
+                a = argmax(Q_si)
+
                  
         elif policy == 'softmax':
             if temp is None:
                 raise KeyError("Provide a temperature")
                 
             # TO DO: Add own code
-            a = np.random.randint(0,self.n_actions) # Replace this with correct action selection
-              
+            Q_si = self.Q_sa[s]
+            a = softmax(Q_si, temp=temp)      
+                    
         return a
         
     def update(self):
