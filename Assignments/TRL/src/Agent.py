@@ -49,7 +49,7 @@ class BaseAgent:
                     
         return a
         
-    def update(self):
+    def update(self,s,a,r,s_next,done):
         raise NotImplementedError('For each agent you need to implement its specific back-up method') # Leave this and overwrite in subclasses in other files
 
 
