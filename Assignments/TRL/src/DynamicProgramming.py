@@ -64,26 +64,27 @@ def Q_value_iteration(env, gamma=1.0, threshold=0.001):
     To do that: for each tuple (s,a) we need to update the Q value until we reach convergence
     """
 
-    error = 10*threshold
-    errors=[]
-    while error>threshold:
-        #save previsious Q(s,a)
-        x=QIagent.Q_sa.copy()
+    error = 10 * threshold
+    errors = []
+    errors.append(error)
+    while error > threshold:
+        # save previsious Q(s,a)
+        x = QIagent.Q_sa.copy()
 
-        #update actual Q(s,a)
+        # update actual Q(s,a)
         for s in range(env.n_states):
             for a in range(env.n_actions):
-                psas, rsas = env.model(s,a)
-                QIagent.update(s,a,psas,rsas)
+                psas, rsas = env.model(s, a)
+                QIagent.update(s, a, psas, rsas)
 
-        #update of the error
-        error=np.max(np.abs(x-QIagent.Q_sa))
-        errors.append(error)
-        #print(QIagent.Q_sa)
+        # update of the error
+        error = np.max(np.abs(x - QIagent.Q_sa))
 
-        # Plot current Q-value estimates & print max error
-        env.render(Q_sa=QIagent.Q_sa,plot_optimal_policy=True,step_pause=1)
-        print("Q-value iteration, iteration {}, max error {}".format(s,error))
+    # print(QIagent.Q_sa)
+
+    # Plot current Q-value estimates & print max error
+    # env.render(Q_sa=QIagent.Q_sa,plot_optimal_policy=True,step_pause=0.2)
+    # print("Q-value iteration, iteration {}, max error {}".format(i,max_error))
 
     return QIagent
 
