@@ -9,7 +9,7 @@ By Thomas Moerland
 import numpy as np
 import time
 
-from Q_learning_solution import q_learning
+from Q_learning import q_learning
 from SARSA_solution import sarsa
 from Nstep_solution import n_step_Q
 from MonteCarlo_solution import monte_carlo

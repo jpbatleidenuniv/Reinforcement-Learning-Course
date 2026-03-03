@@ -28,6 +28,8 @@ def sarsa(n_timesteps, learning_rate, gamma, policy='egreedy', epsilon=None, tem
     eval_returns = []
 
     # TO DO: Write your SARSA algorithm here!
+
+    
     
     # if plot:
     #    env.render(Q_sa=pi.Q_sa,plot_optimal_policy=True,step_pause=0.1) # Plot the Q-value estimates during SARSA execution

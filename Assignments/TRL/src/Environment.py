@@ -6,7 +6,9 @@ Leiden University, The Netherlands
 By Thomas Moerland
 """
 import matplotlib
-matplotlib.use('Qt5Agg') # 'TkAgg'
+# matplotlib.use('Qt5Agg') # 'TkAgg'
+# matplotlib.use('Agg') # Not interactive
+matplotlib.use('TkAgg') # 'TkAgg'
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle,Circle,Arrow
@@ -190,7 +192,7 @@ class StochasticWindyGridworld:
         self.ax.axhline(self.height,0,self.width,linewidth=5,c='k')
 
         # Indicate start state
-        self.ax.add_patch(Rectangle(self.start_location,1.0,1,0, linewidth=0, facecolor='b',alpha=0.2))
+        self.ax.add_patch(Rectangle(self.start_location,1.0,1.0, linewidth=0, facecolor='b',alpha=0.2))
         self.ax.text(self.start_location[0]+0.05,self.start_location[1]+0.75, 'S', fontsize=20, c='b')
 
         # Indicate goal states
@@ -201,7 +203,7 @@ class StochasticWindyGridworld:
             else:
                 colour = 'r'
                 text = '{}'.format(self.goal_rewards[i])
-            self.ax.add_patch(Rectangle(self.goal_locations[i],1.0,1,0, linewidth=0, facecolor=colour,alpha=0.2))
+            self.ax.add_patch(Rectangle(self.goal_locations[i],1.0,1.0, linewidth=0, facecolor=colour,alpha=0.2))
             self.ax.text(self.goal_locations[i][0]+0.05,self.goal_locations[i][1]+0.75,text, fontsize=20, c=colour)
 
         # Add agent

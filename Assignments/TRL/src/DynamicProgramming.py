@@ -10,58 +10,108 @@ import numpy as np
 from Environment import StochasticWindyGridworld
 from Helper import argmax
 
-class QValueIterationAgent:
-    ''' Class to store the Q-value iteration solution, perform updates, and select the greedy action '''
 
-    def __init__(self, n_states, n_actions, gamma, threshold=0.01):
+class QValueIterationAgent:
+    """Class to store the Q-value iteration solution, perform updates, and select the greedy action"""
+
+    def __init__(
+        self, n_states, n_actions, gamma, threshold=0.01
+    ):
         self.n_states = n_states
         self.n_actions = n_actions
         self.gamma = gamma
-        self.Q_sa = np.zeros((n_states,n_actions))
-        
-    def select_action(self,s):
-        ''' Returns the greedy best action in state s ''' 
+        self.Q_sa = np.zeros((n_states, n_actions))
+
+    def select_action(self, s):
+        """Returns the greedy best action in state s"""
+
+        # a = np.random.randint(0,self.n_actions) # Replace this with correct action selection
         # TO DO: Add own code
-        a = np.random.randint(0,self.n_actions) # Replace this with correct action selection
-        return a
-        
-    def update(self,s,a,p_sas,r_sas):
-        ''' Function updates Q(s,a) using p_sas and r_sas '''
+
+        """#WORKFLOW
+        we have the Q(s,a) 2D table, we just need the row corresponding to the correct state
+        from the row we search for the highest possible value
+        that is our action
+        """
+        # we search for max_a Q(s,a)
+        Q_s0_a = self.Q_sa[s]
+        a = argmax(Q_s0_a)
+
+        return a  # this action is our greedy policy for a state
+
+    def update(self, s, a, p_sas, r_sas):
+        """Function updates Q(s,a) using p_sas and r_sas"""
         # TO DO: Add own code
+        V_s = np.max(self.Q_sa, axis=1)
+        self.Q_sa[s, a] = p_sas @ (r_sas + self.gamma * V_s)
+
+        # SOMETHING IS WRONG HERE
         pass
-    
-    
+
+
 def Q_value_iteration(env, gamma=1.0, threshold=0.001):
-    ''' Runs Q-value iteration. Returns a converged QValueIterationAgent object '''
-    
-    QIagent = QValueIterationAgent(env.n_states, env.n_actions, gamma)
- 
-     # TO DO: IMPLEMENT Q-VALUE ITERATION HERE
-        
+    """Runs Q-value iteration. Returns a converged QValueIterationAgent object"""
+
+    QIagent = QValueIterationAgent(
+        env.n_states, env.n_actions, gamma
+    )
+
+    # TO DO: IMPLEMENT Q-VALUE ITERATION HERE
+    """"WORKFLOW:
+    To implement properly this, we need to break it down: we have a 
+    Q table (s,a), we now need to open it and update every value following
+    the dynamic programming algorithm. 
+    To do that: for each tuple (s,a) we need to update the Q value until we reach convergence
+    """
+
+    error = 10*threshold
+    errors=[]
+    errors.append(error)
+    while error>threshold:
+        #save previsious Q(s,a)
+        x=QIagent.Q_sa.copy()
+
+        #update actual Q(s,a)
+        for s in range(env.n_states):
+            for a in range(env.n_actions):
+                psas, rsas = env.model(s,a)
+                QIagent.update(s,a,psas,rsas)
+
+        #update of the error
+        error=np.max(np.abs(x-QIagent.Q_sa))
+
+    #print(QIagent.Q_sa)
+
     # Plot current Q-value estimates & print max error
     # env.render(Q_sa=QIagent.Q_sa,plot_optimal_policy=True,step_pause=0.2)
     # print("Q-value iteration, iteration {}, max error {}".format(i,max_error))
- 
+
     return QIagent
+
 
 def experiment():
     gamma = 1.0
     threshold = 0.001
     env = StochasticWindyGridworld(initialize_model=True)
     env.render()
-    QIagent = Q_value_iteration(env,gamma,threshold)
-    
+    QIagent = Q_value_iteration(env, gamma, threshold)
+
     # view optimal policy
     done = False
     s = env.reset()
     while not done:
         a = QIagent.select_action(s)
         s_next, r, done = env.step(a)
-        env.render(Q_sa=QIagent.Q_sa,plot_optimal_policy=True,step_pause=0.5)
+        env.render(
+            Q_sa=QIagent.Q_sa,
+            plot_optimal_policy=True,
+            step_pause=0.5,
+        )
         s = s_next
 
     # TO DO: Compute mean reward per timestep under the optimal policy
     # print("Mean reward per timestep under optimal policy: {}".format(mean_reward_per_timestep))
-    
-if __name__ == '__main__':
+
+
+if __name__ == "__main__":
     experiment()
