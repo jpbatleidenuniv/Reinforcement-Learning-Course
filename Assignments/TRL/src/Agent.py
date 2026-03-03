@@ -48,7 +48,7 @@ class BaseAgent:
             if random:
                 a = np.random.choice(
                     range(len(Q_si)), size=1
-                )
+                )[0]
             else:
                 a = argmax(Q_si)
 
