@@ -34,7 +34,7 @@ class BaseAgent:
 
             random = bool(np.random.choice([0, 1], size=1, p=[1-epsilon, epsilon])) # Choose with a probability epsilon to take a random action     
             if random: 
-                a = np.random.choice(range(len(Q_si)), size=1)
+                a = np.random.choice(range(len(Q_si)), size=1)[0]
             else:
                 a = argmax(Q_si)
 

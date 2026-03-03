@@ -14,10 +14,13 @@ class QLearningAgent(BaseAgent):
         
     def update(self,s,a,r,s_next,done):
 
-        G_t = r + self.gamma * max(self.Q_sa[s_next])
-        self.Q_sa[s, a] = self.Q_sa + self.learning_rate * (G_t - self.Q_sa[s, a])
         if done:
-            return True
+            G_t = r
+        else:
+            G_t = r + self.gamma * max(self.Q_sa[s_next])
+    
+        self.Q_sa[s, a] += self.learning_rate * (G_t - self.Q_sa[s, a])
+
 
 
 
@@ -33,14 +36,15 @@ def q_learning(n_timesteps, learning_rate, gamma, policy='egreedy', epsilon=None
     
     # TO DO: Write your Q-learning algorithm here!
 
-    s = np.random.choice(agent.n_states) # Pick a random state as initial state
+    s = env.reset() # Pick a random state as initial state
+
     for i in range(n_timesteps):
         a = agent.select_action(s, policy, epsilon, temp)
         s_next, r, done = env.step(a)
         agent.update(s, a, r, s_next, done)
 
         if done:
-            s = np.random.choice(agent.n_states)
+            s = env.reset()
         else:
             s = s_next
 
