@@ -13,10 +13,6 @@ from Agent import BaseAgent
 
 class QLearningAgent(BaseAgent):
     def update(self, s, a, r, s_next, done):
-        G_t = r + self.gamma * max(self.Q_sa[s_next])
-        self.Q_sa[s, a] = self.Q_sa + self.learning_rate * (
-            G_t - self.Q_sa[s, a]
-        )
         if done:
             G_t = r
         else:
