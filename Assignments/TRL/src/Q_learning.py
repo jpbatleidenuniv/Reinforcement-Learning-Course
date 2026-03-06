@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Practical for course 'Reinforcement Learning',
 Leiden University, The Netherlands
@@ -46,8 +44,6 @@ def q_learning(
     eval_timesteps = []
     eval_returns = []
 
-    # TO DO: Write your Q-learning algorithm here!
-
     s = env.reset()  # Pick a random state as initial state
 
     for i in range(n_timesteps):
@@ -60,18 +56,17 @@ def q_learning(
         else:
             s = s_next
 
-        eval_timesteps.append(r)
-
         if i % eval_interval == 0:
             mean_return = agent.evaluate(eval_env)
             eval_returns.append(mean_return)
+            eval_timesteps.append(i)
 
-    if plot:
-        env.render(
-            Q_sa=agent.Q_sa,
-            plot_optimal_policy=True,
-            step_pause=0.1,
-        )  # Plot the Q-value estimates during Q-learning execution
+        if plot:
+            env.render(
+                Q_sa=agent.Q_sa,
+                plot_optimal_policy=True,
+                step_pause=0.1,
+            )  # Plot the Q-value estimates during Q-learning execution
 
     return np.array(eval_returns), np.array(eval_timesteps)
 
