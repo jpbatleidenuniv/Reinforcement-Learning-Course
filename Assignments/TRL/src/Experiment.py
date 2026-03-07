@@ -32,7 +32,8 @@ def average_over_repetitions(
     plot=False,
     n=5,
     eval_interval=500,
-):
+):  
+    plot = False
     returns_over_repetitions = []
     now = time.time()
 
