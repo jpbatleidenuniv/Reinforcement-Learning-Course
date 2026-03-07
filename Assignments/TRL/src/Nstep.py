@@ -16,7 +16,7 @@ class NstepQLearningAgent(BaseAgent):
         """states is a list of states observed in the episode, of length T_ep + 1 (last state is appended)
         actions is a list of actions observed in the episode, of length T_ep
         rewards is a list of rewards observed in the episode, of length T_ep
-        done indicates whether the final s in states is was a terminal state '''
+        done indicates whether the final s in states is was a terminal state """
 
         G = sum([(self.gamma**i) * r for i, r in enumerate(rewards)])
 
