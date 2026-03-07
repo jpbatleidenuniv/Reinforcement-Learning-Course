@@ -10,6 +10,7 @@ import numpy as np
 from Environment import StochasticWindyGridworld
 from Agent import BaseAgent
 
+
 class MonteCarloAgent(BaseAgent):
         
     def update(self, states, actions, rewards, done):
@@ -26,14 +27,28 @@ class MonteCarloAgent(BaseAgent):
             self.Q_sa[s, a] = self.Q_sa[s, a] + self.learning_rate*(G_t - self.Q_sa[s, a])
         
 
-def monte_carlo(n_timesteps, max_episode_length, learning_rate, gamma, 
-                   policy='egreedy', epsilon=None, temp=None, plot=True, eval_interval=500):
-    ''' runs a single repetition of an MC rl agent
-    Return: rewards, a vector with the observed rewards at each timestep ''' 
-    
+
+def monte_carlo(
+    n_timesteps,
+    max_episode_length,
+    learning_rate,
+    gamma,
+    policy="egreedy",
+    epsilon=None,
+    temp=None,
+    plot=True,
+    eval_interval=500,
+):
+    """runs a single repetition of an MC rl agent
+    Return: rewards, a vector with the observed rewards at each timestep"""
+
     env = StochasticWindyGridworld(initialize_model=False)
-    eval_env = StochasticWindyGridworld(initialize_model=False)
-    pi = MonteCarloAgent(env.n_states, env.n_actions, learning_rate, gamma)
+    eval_env = StochasticWindyGridworld(
+        initialize_model=False
+    )
+    pi = MonteCarloAgent(
+        env.n_states, env.n_actions, learning_rate, gamma
+    )
     eval_timesteps = []
     eval_returns = []
     
@@ -82,16 +97,24 @@ def test():
     learning_rate = 0.1
 
     # Exploration
-    policy = 'egreedy' # 'egreedy' or 'softmax' 
+    policy = "egreedy"  # 'egreedy' or 'softmax'
     epsilon = 0.1
     temp = 1.0
-    
+
     # Plotting parameters
     plot = True
 
-    monte_carlo(n_timesteps, max_episode_length, learning_rate, gamma, 
-                   policy, epsilon, temp, plot)
-    
-            
-if __name__ == '__main__':
+    monte_carlo(
+        n_timesteps,
+        max_episode_length,
+        learning_rate,
+        gamma,
+        policy,
+        epsilon,
+        temp,
+        plot,
+    )
+
+
+if __name__ == "__main__":
     test()
