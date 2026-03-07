@@ -38,7 +38,7 @@ def n_step_Q(
     policy="egreedy",
     epsilon=None,
     temp=None,
-    plot=True,
+    plot=False,
     n=5,
     eval_interval=500,
 ):

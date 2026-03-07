@@ -36,7 +36,7 @@ def monte_carlo(
     policy="egreedy",
     epsilon=None,
     temp=None,
-    plot=True,
+    plot=False,
     eval_interval=500,
 ):
     """runs a single repetition of an MC rl agent
