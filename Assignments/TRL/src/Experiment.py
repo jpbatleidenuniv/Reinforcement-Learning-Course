@@ -17,6 +17,8 @@ from Nstep import n_step_Q
 from MonteCarlo import monte_carlo
 from Helper import LearningCurvePlot, smooth
 
+import pandas as pd
+
 
 def average_over_repetitions(
     backup,
@@ -95,9 +97,13 @@ def average_over_repetitions(
             (time.time() - now) / 60
         )
     )
+    returns_array = np.array(returns_over_repetitions)
     learning_curve = np.mean(
-        np.array(returns_over_repetitions), axis=0
+        returns_array, axis=0
     )  # average over repetitions
+    df = pd.DataFrame(returns_array)
+    df.to_csv(f"results_{backup}.csv", index=False)
+
     if smoothing_window is not None:
         learning_curve = smooth(
             learning_curve, smoothing_window
