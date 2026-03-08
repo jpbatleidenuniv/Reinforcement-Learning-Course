@@ -22,11 +22,11 @@ LABELS = [
           r"SARSA , $\alpha=0.3$"
          ]
 
-TITLE = "on_off_policy_results.png"
+TITLE = "on_off_policy_results.pdf"
 SMOOTHING_WINDOW = 9
 OPTIMAL_DP = None
 
-fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+fig, ax = plt.subplots(1, 1, figsize=(12, 10))
 ax.set_xlabel("Timestep", fontsize=15)
 ax.set_ylabel("Episode Average Return", fontsize=15)
 ax.tick_params(axis="both", which="major", labelsize=15)
@@ -42,8 +42,8 @@ if OPTIMAL_DP is not None:
     ax.hlines(OPTIMAL_DP, 0, 50001)
 
 ax.grid(True, alpha=0.6)
+fig.savefig(TITLE)
 plt.legend()
 plt.show()
-plt.savefig(TITLE)
 
 
