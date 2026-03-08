@@ -22,6 +22,9 @@ LABELS = [
           r"SARSA , $\alpha=0.3$"
          ]
 
+TITLE = "on_off_policy_results.png"
+SMOOTHING_WINDOW = 9
+OPTIMAL_DP = None
 
 fig, ax = plt.subplots(1, 1, figsize=(10, 10))
 ax.set_xlabel("Timestep", fontsize=15)
@@ -31,12 +34,16 @@ ax.tick_params(axis="both", which="minor", labelsize=15)
 
 for file, label in zip(RESULTS, LABELS):
     df = pd.read_csv(file)
-    mean = smooth(df.mean(axis=0), window=9)
-    # std = df.std(axis=0)
+    mean = smooth(df.mean(axis=0), window=SMOOTHING_WINDOW)
     ax.plot(np.arange(len(mean))*1000, mean, label=label)
-    # ax.fill_between(np.arange(len(std))*1000, mean-std, mean+std, alpha=0.3)
+
+
+if OPTIMAL_DP is not None:
+    ax.hlines(OPTIMAL_DP, 0, 50001)
+
 ax.grid(True, alpha=0.6)
 plt.legend()
 plt.show()
+plt.savefig(TITLE)
 
 
