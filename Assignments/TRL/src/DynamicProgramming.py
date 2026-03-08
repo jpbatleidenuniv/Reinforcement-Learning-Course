@@ -62,8 +62,8 @@ def Q_value_iteration(env, gamma=1.0, threshold=0.001):
     To do that: for each tuple (s,a) we need to update the Q value until we reach convergence
     """
 
-    error = 10*threshold
-    errors=[]
+    error = 10 * threshold
+    errors = []
     errors.append(error)
     count=0
 
@@ -71,7 +71,7 @@ def Q_value_iteration(env, gamma=1.0, threshold=0.001):
         #save previsious Q(s,a)
         x=QIagent.Q_sa.copy()
 
-        #update actual Q(s,a)
+        # update actual Q(s,a)
         for s in range(env.n_states):
             for a in range(env.n_actions):
                 psas, rsas = env.model(s,a)
