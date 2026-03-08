@@ -25,12 +25,13 @@ LABELS = [
 TITLE = "on_off_policy_results.pdf"
 SMOOTHING_WINDOW = 9
 OPTIMAL_DP = None
+FONT_SIZE = 20
 
 fig, ax = plt.subplots(1, 1, figsize=(12, 10))
 ax.set_xlabel("Timestep", fontsize=15)
-ax.set_ylabel("Episode Average Return", fontsize=15)
-ax.tick_params(axis="both", which="major", labelsize=15)
-ax.tick_params(axis="both", which="minor", labelsize=15)
+ax.set_ylabel("Episode Average Return", fontsize=FONT_SIZE)
+ax.tick_params(axis="both", which="major", labelsize=FONT_SIZE)
+ax.tick_params(axis="both", which="minor", labelsize=FONT_SIZE)
 
 for file, label in zip(RESULTS, LABELS):
     df = pd.read_csv(file)
@@ -42,7 +43,7 @@ if OPTIMAL_DP is not None:
     ax.hlines(OPTIMAL_DP, 0, 50001)
 
 ax.grid(True, alpha=0.6)
-plt.legend()
+plt.legend(fontsize=15, loc="lower right")
 fig.savefig(TITLE)
 plt.show()
 
