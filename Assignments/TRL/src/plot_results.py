@@ -42,8 +42,8 @@ if OPTIMAL_DP is not None:
     ax.hlines(OPTIMAL_DP, 0, 50001)
 
 ax.grid(True, alpha=0.6)
-fig.savefig(TITLE)
 plt.legend()
+fig.savefig(TITLE)
 plt.show()
 
 
