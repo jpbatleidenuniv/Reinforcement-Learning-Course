@@ -26,8 +26,8 @@ class BaseAgent:
         a = 0
         if policy == "greedy":
             # TO DO: Add own code
-            a = np.random.randint(
-                0, self.n_actions
+            a = argmax(
+                self.Q_sa[s]
             )  # Replace this with correct action selection
 
         elif policy == "egreedy":
@@ -58,7 +58,8 @@ class BaseAgent:
 
             # TO DO: Add own code
             Q_si = self.Q_sa[s]
-            a = softmax(Q_si, temp=temp)
+            probs = softmax(Q_si, temp=temp)
+            a = np.random.choice(range(len(Q_si)),  p=probs)
 
         return a
 

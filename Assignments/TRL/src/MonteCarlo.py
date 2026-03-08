@@ -64,13 +64,14 @@ def monte_carlo(
             states.append(s_next)
             actions.append(a)
             rewards.append(r)
-            eval_timesteps.append(r)
+
             steps += 1
             if plot:
                 env.render(Q_sa=pi.Q_sa,plot_optimal_policy=True,step_pause=0.1) # Plot the Q-value estimates during Q-learning execution
             if steps % eval_interval == 0:
                 mean_return = pi.evaluate(eval_env)
                 eval_returns.append(mean_return)
+                eval_timesteps.append(steps)
             s = s_next
             if done: 
                 break

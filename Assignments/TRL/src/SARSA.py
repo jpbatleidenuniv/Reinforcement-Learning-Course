@@ -75,11 +75,11 @@ def sarsa(
             s = s_next
             a = a_next
 
-        eval_timesteps.append(r)
 
         if i % eval_interval == 0:
             mean_return = pi.evaluate(eval_env)
             eval_returns.append(mean_return)
+            eval_timesteps.append(i)
 
     if plot:
         env.render(

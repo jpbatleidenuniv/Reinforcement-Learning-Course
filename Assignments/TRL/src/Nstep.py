@@ -18,16 +18,23 @@ class NstepQLearningAgent(BaseAgent):
         rewards is a list of rewards observed in the episode, of length T_ep
         done indicates whether the final s in states is was a terminal state """
 
-        G = sum([(self.gamma**i) * r for i, r in enumerate(rewards)])
+        T = len(actions)
 
-        if not done:
-            last_state = states[-1]
-            G += (self.gamma**len(rewards)) * np.max(self.Q_sa[last_state])
+        # Precompute n-step targets for all time steps
+        targets = np.zeros(T)
+        for t in range(T):
+            end = min(t + n, T)  
+            G = 0.0
+            for i in range(t, end):
+                G += (self.gamma ** (i - t)) * rewards[i]
+            if not done:                              # bootstrap if episode did not terminate
+                G += (self.gamma ** (end - t)) * np.max(self.Q_sa[states[end]])
+            targets[t] = G
 
-        s_target = states[0]
-        a_target = actions[0]
-    
-        self.Q_sa[s_target, a_target] += self.learning_rate * (G - self.Q_sa[s_target, a_target])
+        # Apply updates
+        for t in range(T):
+            s, a = states[t], actions[t]
+            self.Q_sa[s, a] += self.learning_rate * (targets[t] - self.Q_sa[s, a])
 
 
 def n_step_Q(
@@ -55,38 +62,45 @@ def n_step_Q(
     eval_timesteps = []
     eval_returns = []
 
+    steps = 0
     s = env.reset()
-    states, actions, rewards = [s], [], []
-    
-    for t in range(n_timesteps):
-        a = pi.select_action(s, policy, epsilon, temp)
-        s_next, r, done = env.step(a)
+    while steps < n_timesteps:
+        # Start a new episode
+        episode_states = [s]
+        episode_actions = []
+        episode_rewards = []
+        done = False
+
+        for _ in range(max_episode_length):
+            a = pi.select_action(s, policy, epsilon, temp)
+            s_next, r, done = env.step(a)
+
+            episode_actions.append(a)
+            episode_rewards.append(r)
+            episode_states.append(s_next)
+            steps += 1
+
+            if plot:
+                env.render(Q_sa=pi.Q_sa, plot_optimal_policy=True, step_pause=0.1)
+
+            if steps % eval_interval == 0:
+                mean_return = pi.evaluate(eval_env)
+                eval_returns.append(mean_return)
+                eval_timesteps.append(steps)
+
+            s = s_next
+            if done or steps >= n_timesteps:
+                break
+
+        # Episode finished – update using collected data
+        pi.update(episode_states, episode_actions, episode_rewards, done, n)
+
+        # Reset for next episode
+        s = env.reset()
+
+    return np.array(eval_returns), np.array(eval_timesteps)
+
         
-        states.append(s_next)
-        actions.append(a)
-        rewards.append(r)
-        eval_timesteps.append(r)
-        s = s_next
-
-        if plot:
-            env.render(Q_sa=pi.Q_sa,plot_optimal_policy=True,step_pause=0.1)
-
-        # Once we have at least n steps, we can start updating
-        if len(rewards) >= n:
-            pi.update(states[-n-1:], actions[-n:], rewards[-n:], done, n)
-            states, actions, rewards = [states[-1]], [], []
-        if done:
-            pi.update(states[-n-1:], actions[-n:], rewards[-n:], done, n)
-            s = env.reset()
-            states, actions, rewards = [s], [], []
-        
-        if t % eval_interval == 0:
-            mean_return = pi.evaluate(eval_env)
-            eval_returns.append(mean_return)
-
-        
-    return np.array(eval_returns), np.array(eval_timesteps) 
-
 def test():
     n_timesteps = 10000
     max_episode_length = 100

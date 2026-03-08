@@ -48,7 +48,12 @@ def q_learning(
 
     for i in range(n_timesteps):
         a = agent.select_action(s, policy, epsilon, temp)
-        s_next, r, done = env.step(a)
+        
+        try:
+            s_next, r, done = env.step(a)
+        except TypeError:
+            s_next, r, done = env.step(a[0])
+
         agent.update(s, a, r, s_next, done)
 
         if done:

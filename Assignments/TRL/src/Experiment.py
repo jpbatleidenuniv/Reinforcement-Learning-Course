@@ -16,6 +16,7 @@ from SARSA import sarsa
 from Nstep import n_step_Q
 from MonteCarlo import monte_carlo
 from Helper import LearningCurvePlot, smooth
+from SaveResults import save_results_with_params
 
 import pandas as pd
 
@@ -101,8 +102,18 @@ def average_over_repetitions(
     learning_curve = np.mean(
         returns_array, axis=0
     )  # average over repetitions
+
     df = pd.DataFrame(returns_array)
-    df.to_csv(f"results_{backup}.csv", index=False)
+    params = {
+    "learning_rate": learning_rate,
+    "gamma": gamma,
+    "policy": policy,
+    "epsilon": epsilon,
+    "temp": temp,
+    "n": n,
+    "eval_interval": eval_interval,
+    }
+    save_results_with_params(df, backup, params)
 
     if smoothing_window is not None:
         learning_curve = smooth(
@@ -146,7 +157,7 @@ def experiment():
 
     #### Assignment 1: Dynamic Programming
     # Execute this assignment in DynamicProgramming.py
-    optimal_episode_return = 100  # set the optimal return per episode you found in the DP assignment here
+    optimal_episode_return = 0  # set the optimal return per episode you found in the DP assignment here
 
     #### Assignment 2: Effect of exploration
     policy = "egreedy"
