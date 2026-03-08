@@ -140,7 +140,7 @@ class StochasticWindyGridworld:
                 if state_is_a_goal: 
                     # Make actions from this state a self-loop with 0 reward.
                     p_sas[s,a,s] = 1.0 
-                    r_sas[s,a,] = np.zeros(self.n_states)  
+                    r_sas[s,a,] = np.zeros(self.n_states)  ###FLAG FOR MARIO
                 else:
                     # check what happens if the wind blows:
                     next_location_with_wind = np.copy(s_location) 
