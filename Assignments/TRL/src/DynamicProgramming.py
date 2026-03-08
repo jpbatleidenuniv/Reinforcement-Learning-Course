@@ -110,7 +110,7 @@ def experiment():
         env.render(
             Q_sa=QIagent.Q_sa,
             plot_optimal_policy=True,
-            step_pause=5,
+            step_pause=0.1,
         )
         s = s_next
         Return.append(r)
@@ -118,28 +118,44 @@ def experiment():
     
     # TO DO: Compute mean reward per timestep under the optimal policy
     mean_reward_per_timestep=np.mean(Return)
-
+    num_step=len(Return)
+    scalar_return=np.sum(Return)
     print("Mean reward per timestep under optimal policy: {}".format(mean_reward_per_timestep))
-    return mean_reward_per_timestep
+    return mean_reward_per_timestep, num_step, scalar_return
 
 
 if __name__ == "__main__":
-    #useful switch
-    a_lot=False
+    #useful switch, False= just one experiment run, true= more than one right to have statistics
+    a_lot=True
 
 
     if a_lot:
-        mean_rewards=[]
-        for i in range(10):
-            mean_reward=experiment()
-            mean_rewards.append(mean_reward)
+        mean_rewards, steps, returns=[], [], []
 
-        final_mean=np.mean(mean_rewards)
-        final_std=np.std(mean_rewards)
-        print(f"The mean reward per timestep averaged on 10 simulation is: {final_mean} and error: {final_std}")
+        for i in range(10):
+            mean_reward, num_step, scal_return =experiment()
+            mean_rewards.append(mean_reward)
+            steps.append(num_step)
+            returns.append(scal_return)
+
+        final_r_mean=np.mean(mean_rewards)
+        final_r_std=np.std(mean_rewards)
+
+        final_R_mean=np.mean(returns)
+        final_R_std=np.std(returns)
+
+        final_step_mean=np.mean(steps)
+        final_step_std=np.std(steps)
+        
+
+        print(f"The mean reward per timestep averaged on 10 simulation is: {final_r_mean} and error: {final_r_std}")
         with open("Dynamic_programming_avg_reward_per_timestep.txt", "w") as file:
-            file.write(f"Mean reward per timestep on 10 simulations: {final_mean}")
-            file.write(f"Std deviation: {final_std}")
+            file.write(f"Mean reward per timestep on 10 simulations: {final_r_mean}")
+            file.write(f"\nStd deviation: {final_r_std}")
+            file.write(f"\n\n Mean Return on 10 simulations: {final_R_mean}")
+            file.write(f"\nStd deviation: {final_R_std}")
+            file.write(f"\n\n Mean steps on 10 simulations: {final_step_mean}")
+            file.write(f"\nStd deviation: {final_step_std}")
     else:
         experiment()
     

@@ -1,1 +1,8 @@
-Mean reward per timestep on 10 simulations: 4.8126246990024075Std deviation: 0.21065127561247154
+Mean reward per timestep on 10 simulations: 4.783092535259717
+Std deviation: 0.2532302563341364
+
+ Mean Return on 10 simulations: 83.5
+Std deviation: 0.806225774829855
+
+ Mean steps on 10 simulations: 17.5
+Std deviation: 0.806225774829855
