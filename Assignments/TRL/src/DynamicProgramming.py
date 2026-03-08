@@ -10,7 +10,6 @@ import numpy as np
 from Environment import StochasticWindyGridworld
 from Helper import argmax
 
-
 class QValueIterationAgent:
     """Class to store the Q-value iteration solution, perform updates, and select the greedy action"""
 
@@ -45,7 +44,6 @@ class QValueIterationAgent:
         V_s = np.max(self.Q_sa, axis=1)
         self.Q_sa[s, a] = p_sas @ (r_sas + self.gamma * V_s)
 
-        # SOMETHING IS WRONG HERE
         pass
 
 
@@ -68,6 +66,7 @@ def Q_value_iteration(env, gamma=1.0, threshold=0.001):
     errors=[]
     errors.append(error)
     count=0
+
     while error>threshold:
         #save previsious Q(s,a)
         x=QIagent.Q_sa.copy()
@@ -77,14 +76,17 @@ def Q_value_iteration(env, gamma=1.0, threshold=0.001):
             for a in range(env.n_actions):
                 psas, rsas = env.model(s,a)
                 QIagent.update(s,a,psas,rsas)
-
+                
+                
         #update of the error
         error=np.max(np.abs(x-QIagent.Q_sa))
 
         #print(QIagent.Q_sa)
 
         # Plot current Q-value estimates & print max error
-        env.render(Q_sa=QIagent.Q_sa,plot_optimal_policy=True,step_pause=0.5)
+        env.render(Q_sa=QIagent.Q_sa,plot_optimal_policy=True,step_pause=5)
+        """if error<threshold:
+                env.render(Q_sa=QIagent.Q_sa,plot_optimal_policy=True,step_pause=5)"""
         print("Q-value iteration, iteration {}, max error {}".format(count,error))
         count+=1
 
@@ -97,9 +99,10 @@ def experiment():
     env = StochasticWindyGridworld(initialize_model=True)
     env.render()
     QIagent = Q_value_iteration(env, gamma, threshold)
-
+   
     # view optimal policy
     done = False
+    Return=[]
     s = env.reset()
     while not done:
         a = QIagent.select_action(s)
@@ -107,13 +110,36 @@ def experiment():
         env.render(
             Q_sa=QIagent.Q_sa,
             plot_optimal_policy=True,
-            step_pause=0.5,
+            step_pause=0.2,
         )
         s = s_next
-
+        Return.append(r)
+        #print(f"Reward:{r}")
+    
     # TO DO: Compute mean reward per timestep under the optimal policy
-    # print("Mean reward per timestep under optimal policy: {}".format(mean_reward_per_timestep))
+    mean_reward_per_timestep=np.mean(Return)
+
+    print("Mean reward per timestep under optimal policy: {}".format(mean_reward_per_timestep))
+    return mean_reward_per_timestep
 
 
 if __name__ == "__main__":
-    experiment()
+    #useful switch
+    a_lot=False
+
+
+    if a_lot:
+        mean_rewards=[]
+        for i in range(10):
+            mean_reward=experiment()
+            mean_rewards.append(mean_reward)
+
+        final_mean=np.mean(mean_rewards)
+        final_std=np.std(mean_rewards)
+        print(f"The mean reward per timestep averaged on 10 simulation is: {final_mean} and error: {final_std}")
+        with open("Dynamic_programming_avg_reward_per_timestep.txt", "w") as file:
+            file.write(f"Mean reward per timestep on 10 simulations: {final_mean}")
+            file.write(f"Std deviation: {final_std}")
+    else:
+        experiment()
+    
