@@ -8,12 +8,17 @@ By Thomas Moerland
 
 import numpy as np
 import time
+from tqdm import tqdm
+from time import perf_counter
 
-from Q_learning_solution import q_learning
-from SARSA_solution import sarsa
-from Nstep_solution import n_step_Q
-from MonteCarlo_solution import monte_carlo
+from Q_learning import q_learning
+from SARSA import sarsa
+from Nstep import n_step_Q
+from MonteCarlo import monte_carlo
 from Helper import LearningCurvePlot, smooth
+from SaveResults import save_results_with_params
+
+import pandas as pd
 
 
 def average_over_repetitions(
@@ -31,11 +36,12 @@ def average_over_repetitions(
     n=5,
     eval_interval=500,
 ):
+    plot = False
     returns_over_repetitions = []
     now = time.time()
 
-    for rep in range(
-        n_repetitions
+    for rep in tqdm(
+        range(n_repetitions)
     ):  # Loop over repetitions
         if backup == "q":
             returns, timesteps = q_learning(
@@ -92,9 +98,23 @@ def average_over_repetitions(
             (time.time() - now) / 60
         )
     )
+    returns_array = np.array(returns_over_repetitions)
     learning_curve = np.mean(
-        np.array(returns_over_repetitions), axis=0
+        returns_array, axis=0
     )  # average over repetitions
+
+    df = pd.DataFrame(returns_array)
+    params = {
+        "learning_rate": learning_rate,
+        "gamma": gamma,
+        "policy": policy,
+        "epsilon": epsilon,
+        "temp": temp,
+        "n": n,
+        "eval_interval": eval_interval,
+    }
+    save_results_with_params(df, backup, params)
+
     if smoothing_window is not None:
         learning_curve = smooth(
             learning_curve, smoothing_window
@@ -137,7 +157,7 @@ def experiment():
 
     #### Assignment 1: Dynamic Programming
     # Execute this assignment in DynamicProgramming.py
-    optimal_episode_return = 100  # set the optimal return per episode you found in the DP assignment here
+    optimal_episode_return = 0  # set the optimal return per episode you found in the DP assignment here
 
     #### Assignment 2: Effect of exploration
     policy = "egreedy"
@@ -148,7 +168,7 @@ def experiment():
         title="Exploration: $\epsilon$-greedy versus softmax exploration"
     )
     Plot.set_ylim(-100, 100)
-    for epsilon in epsilons:
+    for epsilon in tqdm(epsilons, desc="Epsilons"):
         learning_curve, timesteps = (
             average_over_repetitions(
                 backup,
@@ -175,7 +195,7 @@ def experiment():
         )
     policy = "softmax"
     temps = [0.01, 0.1, 1.0]
-    for temp in temps:
+    for temp in tqdm(temps, desc="Temperatures"):
         learning_curve, timesteps = (
             average_over_repetitions(
                 backup,
@@ -300,4 +320,7 @@ def experiment():
 
 
 if __name__ == "__main__":
+    t0 = perf_counter()
     experiment()
+    t1 = perf_counter()
+    print(f"It took {(t1 - t0) / 60} minutes to run!")
