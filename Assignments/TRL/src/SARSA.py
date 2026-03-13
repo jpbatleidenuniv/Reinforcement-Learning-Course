@@ -12,21 +12,15 @@ from Agent import BaseAgent
 
 
 class SarsaAgent(BaseAgent):
-    def update(self, s, a, r, s_next, done, a_next=None):
-        if a_next is None:
-            raise ValueError(
-                "The next action cannot be None."
-            )
-
-        if done:
-            G_t = r
-        else:
-            G_t = r + self.gamma * self.Q_sa[s_next, a_next]
-
-        new_val = self.Q_sa[s, a] + self.learning_rate * (
-            G_t - self.Q_sa[s, a]
+    def update(self, s, a, r, s_next, a_next, done):
+        target = (
+            r + self.gamma * self.Q_sa[s_next, a_next]
+            if not done
+            else r
         )
-        self.Q_sa[s, a] = new_val
+        self.Q_sa[s, a] += self.learning_rate * (
+            target - self.Q_sa[s, a]
+        )
 
 
 def sarsa(
@@ -52,41 +46,42 @@ def sarsa(
     eval_timesteps = []
     eval_returns = []
 
-    # TO DO: Write your SARSA algorithm here!
-
-    s = (
-        env.reset()
-    )  # Let the agent start at the start position
+    s0 = env.reset()
+    s = s0
     a = pi.select_action(
-        s, policy, epsilon, temp
-    )  # Select initial action
-
+        s0, policy=policy, epsilon=epsilon, temp=temp
+    )
     for i in range(n_timesteps):
+        if i % eval_interval == 0:
+            eval_timesteps.append(i)
+            eval_returns.append(pi.evaluate(eval_env))
+
         s_next, r, done = env.step(a)
         a_next = pi.select_action(
-            s_next, policy, epsilon, temp
+            s_next,
+            policy=policy,
+            epsilon=epsilon,
+            temp=temp,
         )
-        pi.update(s, a, r, s_next, done, a_next)
-
+        pi.update(s, a, r, s_next, a_next, done)
         if done:
-            s = env.reset()  # Reset the board
-            a = pi.select_action(s, policy, epsilon, temp)
+            s = env.reset()
+            a = pi.select_action(
+                s,
+                policy=policy,
+                epsilon=epsilon,
+                temp=temp,
+            )
         else:
             s = s_next
             a = a_next
 
-
-        if i % eval_interval == 0:
-            mean_return = pi.evaluate(eval_env)
-            eval_returns.append(mean_return)
-            eval_timesteps.append(i)
-
-    if plot:
-        env.render(
-            Q_sa=pi.Q_sa,
-            plot_optimal_policy=True,
-            step_pause=0.1,
-        )  # Plot the Q-value estimates during SARSA execution
+        if plot:
+            env.render(
+                Q_sa=pi.Q_sa,
+                plot_optimal_policy=True,
+                step_pause=0.005,
+            )  # Plot the Q-value estimates during SARSA execution
 
     return np.array(eval_returns), np.array(eval_timesteps)
 

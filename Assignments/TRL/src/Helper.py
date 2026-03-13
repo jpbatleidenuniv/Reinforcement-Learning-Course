@@ -93,8 +93,8 @@ if __name__ == "__main__":
         0.01 * x + np.random.rand(100) - 0.4
     )  # generate some learning curve y
     LCTest = LearningCurvePlot(title="Test Learning Curve")
-    LCTest.add_curve(y, label="method 1")
+    LCTest.add_curve(x, y, label="method 1")
     LCTest.add_curve(
-        smooth(y, window=35), label="method 1 smoothed"
+        x, smooth(y, window=35), label="method 1 smoothed"
     )
     LCTest.save(name="learning_curve_test.png")

@@ -35,7 +35,7 @@ def average_over_repetitions(
     plot=False,
     n=5,
     eval_interval=500,
-):  
+):
     plot = False
     returns_over_repetitions = []
     now = time.time()
@@ -105,13 +105,13 @@ def average_over_repetitions(
 
     df = pd.DataFrame(returns_array)
     params = {
-    "learning_rate": learning_rate,
-    "gamma": gamma,
-    "policy": policy,
-    "epsilon": epsilon,
-    "temp": temp,
-    "n": n,
-    "eval_interval": eval_interval,
+        "learning_rate": learning_rate,
+        "gamma": gamma,
+        "policy": policy,
+        "epsilon": epsilon,
+        "temp": temp,
+        "n": n,
+        "eval_interval": eval_interval,
     }
     save_results_with_params(df, backup, params)
 
@@ -157,7 +157,7 @@ def experiment():
 
     #### Assignment 1: Dynamic Programming
     # Execute this assignment in DynamicProgramming.py
-    optimal_episode_return = 0  # set the optimal return per episode you found in the DP assignment here
+    optimal_episode_return = 83.7  # set the optimal return per episode you found in the DP assignment here
 
     #### Assignment 2: Effect of exploration
     policy = "egreedy"
@@ -262,11 +262,11 @@ def experiment():
         optimal_episode_return, label="DP optimum"
     )
     Plot.save("on_off_policy.png")
-    
-    # ##### Assignment 4: Back-up depth
+
+    ##### Assignment 4: Back-up depth
     policy = "egreedy"
-    epsilon = 0.05  # set epsilon back to original value
-    learning_rate = 0.1
+    epsilon = 0.2  # set epsilon back to original value
+    learning_rate = 0.03
     backup = "nstep"
     ns = [1, 3, 10]
     Plot = LearningCurvePlot(title="Back-up: depth")

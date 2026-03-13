@@ -1,6 +1,9 @@
 import re
 
-def save_results_with_params(df, backup, params, folder="results"):
+
+def save_results_with_params(
+    df, backup, params, folder="results"
+):
     """
     Save a dataframe to CSV with a filename that encodes the parameters.
     """
@@ -22,4 +25,3 @@ def save_results_with_params(df, backup, params, folder="results"):
     filename = f"{backup}_" + "_".join(param_parts) + ".csv"
     filepath = os.path.join(folder, filename)
     df.to_csv(filepath, index=False)
-    print(f"Saved results to {filepath}")

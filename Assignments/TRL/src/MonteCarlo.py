@@ -9,23 +9,29 @@ By Thomas Moerland
 import numpy as np
 from Environment import StochasticWindyGridworld
 from Agent import BaseAgent
+from Helper import LearningCurvePlot, smooth
+
 
 
 class MonteCarloAgent(BaseAgent):
-        
-    def update(self, states, actions, rewards, done):
-        ''' states is a list of states observed in the episode, of length T_ep + 1 (last state is appended)
+    def update(self, states, actions, rewards):
+        """states is a list of states observed in the episode, of length T_ep + 1 (last state is appended)
         actions is a list of actions observed in the episode, of length T_ep
         rewards is a list of rewards observed in the episode, of length T_ep
-        done indicates whether the final s in states is was a terminal state '''
-        G_t = 0
-        states_r = states[:-1][::-1]
-        actions_r = actions[::-1]
-        rewards_r = rewards[::-1]
-        for s, a, r in zip(states_r, actions_r, rewards_r): 
-            G_t = G_t*self.gamma + r
-            self.Q_sa[s, a] = self.Q_sa[s, a] + self.learning_rate*(G_t - self.Q_sa[s, a])
-        
+        done indicates whether the final s in states is was a terminal state"""
+
+        T_ep = len(actions)
+
+        target = 0
+        for t in reversed(range(T_ep)):
+            target = rewards[t] + self.gamma * target
+
+            s = states[t]
+            a = actions[t]
+
+            self.Q_sa[s, a] += self.learning_rate * (
+                target - self.Q_sa[s, a]
+            )
 
 
 def monte_carlo(
@@ -36,7 +42,7 @@ def monte_carlo(
     policy="egreedy",
     epsilon=None,
     temp=None,
-    plot=False,
+    plot=True,
     eval_interval=500,
 ):
     """runs a single repetition of an MC rl agent
@@ -51,61 +57,66 @@ def monte_carlo(
     )
     eval_timesteps = []
     eval_returns = []
-    
-    steps = 0
-    s = env.reset()
-    while steps < n_timesteps:
+
+    timestep = 0
+    while timestep < n_timesteps:
         states, actions, rewards = [], [], []
+        s = env.reset()
         states.append(s)
-        done = False
+
         for _ in range(max_episode_length):
-            a = pi.select_action(s, policy, epsilon, temp)
+            a = pi.select_action(
+                s, policy=policy, epsilon=epsilon, temp=temp
+            )
             s_next, r, done = env.step(a)
-            states.append(s_next)
+
             actions.append(a)
             rewards.append(r)
+            states.append(s_next)
 
-            steps += 1
-            if plot:
-                env.render(Q_sa=pi.Q_sa,plot_optimal_policy=True,step_pause=0.1) # Plot the Q-value estimates during Q-learning execution
-            if steps % eval_interval == 0:
-                mean_return = pi.evaluate(eval_env)
-                eval_returns.append(mean_return)
-                eval_timesteps.append(steps)
+            timestep += 1
+
+            if timestep % eval_interval == 0:
+                eval_timesteps.append(timestep)
+                eval_returns.append(pi.evaluate(eval_env))
+
+            if done or timestep >= n_timesteps:
+                break
+
             s = s_next
-            if done: 
-                break
-            elif steps >= n_timesteps:
-                break
+
+        # print(timestep)
+
+        pi.update(states, actions, rewards)
+
+        if plot:
+            env.render(
+                Q_sa=pi.Q_sa,
+                plot_optimal_policy=True,
+                step_pause=0.001,
+            )  # Plot the Q-value estimates during Monte Carlo RL execution
+
+    print(len(eval_returns))
+
+    return np.array(eval_returns), np.array(eval_timesteps)
 
 
-        pi.update(states, actions, rewards, done)
-
-        s = env.reset()
-
-            
-
-
-    return np.array(eval_returns), np.array(eval_timesteps)   
-
-    # if plot:
-    #    env.render(Q_sa=pi.Q_sa,plot_optimal_policy=True,step_pause=0.1) # Plot the Q-value estimates during Monte Carlo RL execution
-    
 def test():
-    n_timesteps = 1000
+    n_timesteps = 100001
     max_episode_length = 100
     gamma = 1.0
-    learning_rate = 0.1
+    learning_rate = 0.04
+    eval_interval = 500
 
     # Exploration
     policy = "egreedy"  # 'egreedy' or 'softmax'
-    epsilon = 0.1
+    epsilon = 0.08
     temp = 1.0
 
     # Plotting parameters
-    plot = True
+    plot = False
 
-    monte_carlo(
+    rewards, t = monte_carlo(
         n_timesteps,
         max_episode_length,
         learning_rate,
@@ -114,7 +125,15 @@ def test():
         epsilon,
         temp,
         plot,
+        eval_interval,
     )
+    print(len(rewards))
+    print(len(t))
+
+    lcp = LearningCurvePlot("Monte carlo")
+    lcp.add_curve(t, rewards, "Monte Carlo")
+    # lcp.add_curve(t, smooth(rewards, window=35))
+    lcp.save("MonteCarloTest.png")
 
 
 if __name__ == "__main__":
