@@ -9,8 +9,7 @@ By Thomas Moerland
 import numpy as np
 from Environment import StochasticWindyGridworld
 from Agent import BaseAgent
-from Helper import LearningCurvePlot, smooth
-
+from Helper import LearningCurvePlot
 
 
 class MonteCarloAgent(BaseAgent):
@@ -85,8 +84,6 @@ def monte_carlo(
 
             s = s_next
 
-        # print(timestep)
-
         pi.update(states, actions, rewards)
 
         if plot:
@@ -95,8 +92,6 @@ def monte_carlo(
                 plot_optimal_policy=True,
                 step_pause=0.001,
             )  # Plot the Q-value estimates during Monte Carlo RL execution
-
-    print(len(eval_returns))
 
     return np.array(eval_returns), np.array(eval_timesteps)
 
@@ -127,8 +122,6 @@ def test():
         plot,
         eval_interval,
     )
-    print(len(rewards))
-    print(len(t))
 
     lcp = LearningCurvePlot("Monte carlo")
     lcp.add_curve(t, rewards, "Monte Carlo")

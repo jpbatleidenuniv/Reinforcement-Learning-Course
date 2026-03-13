@@ -97,7 +97,7 @@ def test():
     temp = 1.0
 
     # Plotting parameters
-    plot = True
+    plot = False
     sarsa(
         n_timesteps,
         learning_rate,

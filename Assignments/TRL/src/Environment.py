@@ -9,7 +9,7 @@ By Thomas Moerland
 import matplotlib
 
 # matplotlib.use("Qt5Agg")  # 'TkAgg'
-matplotlib.use('TkAgg')
+matplotlib.use("TkAgg")
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle, Circle, Arrow

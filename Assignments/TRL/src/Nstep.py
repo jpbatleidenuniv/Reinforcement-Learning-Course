@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+# True!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Practical for course 'Reinforcement Learning',
@@ -112,7 +112,7 @@ def test():
     temp = 1.0
 
     # Plotting parameters
-    plot = True
+    plot = False
     n_step_Q(
         n_timesteps,
         max_episode_length,
