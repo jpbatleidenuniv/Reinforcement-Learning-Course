@@ -9,14 +9,15 @@ By Thomas Moerland
 import numpy as np
 from Environment import StochasticWindyGridworld
 from Agent import BaseAgent
+from Helper import LearningCurvePlot, smooth
 
 
 class QLearningAgent(BaseAgent):
     def update(self, s, a, r, s_next, done):
         target = (
-            r + self.gamma * np.max(self.Q_sa[s_next])
+            r
             if done
-            else r
+            else r + self.gamma * np.max(self.Q_sa[s_next])
         )
         self.Q_sa[s, a] += self.learning_rate * (
             target - self.Q_sa[s, a]
@@ -32,11 +33,14 @@ def q_learning(
     temp=None,
     plot=True,
     eval_interval=500,
+    add_extra_goal=False,
 ):
     """runs a single repetition of q_learning
     Return: rewards, a vector with the observed rewards at each timestep"""
 
-    env = StochasticWindyGridworld(initialize_model=False)
+    env = StochasticWindyGridworld(
+        initialize_model=False,
+    )
     eval_env = StochasticWindyGridworld(
         initialize_model=False
     )
@@ -47,12 +51,13 @@ def q_learning(
     eval_returns = []
 
     # TO DO: Write your Q-learning algorithm here!
-    s0 = env.reset()
-    s = s0
+    s = env.reset()
+    if add_extra_goal:
+        env.goal_locations = [[7, 3], [3, 2]]
+        env.goal_rewards = [100, 5]
+        eval_env.goal_locations = [[7, 3], [3, 2]]
+        eval_env.goal_rewards = [100, 5]
     for i in range(n_timesteps):
-        if not i + 1 % eval_interval:
-            eval_timesteps.append(i)
-            eval_returns.append(agent.evaluate(eval_env))
         a = agent.select_action(
             s=s, policy=policy, epsilon=epsilon, temp=temp
         )
@@ -62,6 +67,11 @@ def q_learning(
             s = env.reset()
         else:
             s = s_next
+
+        if i % eval_interval == 0:
+            mean_return = agent.evaluate(eval_env)
+            eval_returns.append(mean_return)
+            eval_timesteps.append(i)
 
         if plot:
             env.render(
@@ -74,8 +84,8 @@ def q_learning(
 
 
 def test():
-    n_timesteps = 1000
-    eval_interval = 100
+    n_timesteps = 50001
+    eval_interval = 500
     gamma = 1.0
     learning_rate = 0.1
 
@@ -85,7 +95,7 @@ def test():
     temp = 1.0
 
     # Plotting parameters
-    plot = True
+    plot = False
 
     eval_returns, eval_timesteps = q_learning(
         n_timesteps,
@@ -97,7 +107,34 @@ def test():
         plot,
         eval_interval,
     )
-    print(eval_returns, eval_timesteps)
+    lcp = LearningCurvePlot("Q learning")
+    lcp.add_curve(
+        eval_timesteps,
+        smooth(eval_returns, window=35),
+        "Q Learning 1 goal",
+    )
+
+    # Multiple goals
+    eval_returns_extra_goal, eval_timesteps_extra_goal = (
+        q_learning(
+            n_timesteps,
+            learning_rate,
+            gamma,
+            policy,
+            epsilon,
+            temp,
+            plot,
+            eval_interval,
+            add_extra_goal=True,
+        )
+    )
+    lcp.add_curve(
+        eval_timesteps_extra_goal,
+        smooth(eval_returns_extra_goal, window=35),
+        "Q learning extra goal",
+    )
+
+    lcp.save("QLearningExtraGoal.png")
 
 
 if __name__ == "__main__":

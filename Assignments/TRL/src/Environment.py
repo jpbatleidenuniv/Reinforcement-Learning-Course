@@ -272,7 +272,8 @@ class StochasticWindyGridworld:
                         self.goal_locations
                     ):
                         if np.all(
-                            next_state_without_wind == goal
+                            next_location_without_wind
+                            == goal
                         ):  # reached a goal!
                             r_sas[
                                 s,

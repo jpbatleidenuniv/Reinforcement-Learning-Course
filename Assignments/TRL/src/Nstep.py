@@ -9,7 +9,6 @@ By Thomas Moerland
 import numpy as np
 from Environment import StochasticWindyGridworld
 from Agent import BaseAgent
-from tqdm import tqdm
 
 
 class NstepQLearningAgent(BaseAgent):
@@ -21,9 +20,7 @@ class NstepQLearningAgent(BaseAgent):
 
         T_ep = len(actions)
 
-        for t, (s, a) in tqdm(
-            enumerate(zip(states, actions)), "updating"
-        ):
+        for t, (s, a) in enumerate(zip(states, actions)):
             m = min(n, T_ep - t)
             # compute discounted reward window
             target = sum(
@@ -72,7 +69,7 @@ def n_step_Q(
         states, actions, rewards = [], [], []
         s = env.reset()
         states.append(s)
-        for _ in tqdm(range(max_episode_length), "episode"):
+        for _ in range(max_episode_length):
             a = pi.select_action(
                 s, policy=policy, epsilon=epsilon, temp=temp
             )
@@ -82,6 +79,10 @@ def n_step_Q(
             states.append(s_next)
             s = s_next
             timestep += 1
+
+            if timestep % eval_interval == 0:
+                eval_timesteps.append(timestep)
+                eval_returns.append(pi.evaluate(eval_env))
 
             if done or timestep >= n_timesteps:
                 break
@@ -95,15 +96,11 @@ def n_step_Q(
 
         pi.update(states, actions, rewards, done, n)
 
-        if timestep % eval_interval == 0:
-            eval_timesteps.append(timestep)
-            eval_returns.append(pi.evaluate(eval_env))
-
     return np.array(eval_returns), np.array(eval_timesteps)
 
 
 def test():
-    n_timesteps = 10000
+    n_timesteps = 15000
     max_episode_length = 100
     gamma = 1.0
     learning_rate = 0.1
