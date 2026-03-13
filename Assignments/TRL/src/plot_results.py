@@ -11,20 +11,20 @@ RESULTS = [
     "results/sarsa_learning_rate_0_03_gamma_1_policy_egreedy_epsilon_0_1_temp_1_n_5_eval_interval_1000.csv",
     "results/sarsa_learning_rate_0_1_gamma_1_policy_egreedy_epsilon_0_1_temp_1_n_5_eval_interval_1000.csv",
     "results/sarsa_learning_rate_0_3_gamma_1_policy_egreedy_epsilon_0_1_temp_1_n_5_eval_interval_1000.csv"
-]
+    ]
 
 LABELS = [
-          r"Q-learning , $\alpha=0.03$",
-          r"Q-learning , $\alpha=0.1$",
-          r"Q-learning , $\alpha=0.3$",
-          r"SARSA , $\alpha=0.03$",
-          r"SARSA , $\alpha=0.1$",
-          r"SARSA , $\alpha=0.3$"
+          r"Q-learning, $\alpha$ = 0.03",
+          r"Q-learning, $\alpha$ = 0.1",
+          r"Q-learning, $\alpha$ = 0.3",
+          r"SARSA, $\alpha$ = 0.03",
+          r"SARSA, $\alpha$ = 0.1",
+          r"SARSA, $\alpha$ = 0.3"
          ]
 
 TITLE = "on_off_policy_results.pdf"
 SMOOTHING_WINDOW = 9
-OPTIMAL_DP = None
+OPTIMAL_DP = 83.5
 FONT_SIZE = 20
 
 fig, ax = plt.subplots(1, 1, figsize=(12, 10))
@@ -40,7 +40,7 @@ for file, label in zip(RESULTS, LABELS):
 
 
 if OPTIMAL_DP is not None:
-    ax.hlines(OPTIMAL_DP, 0, 50001)
+    ax.hlines(OPTIMAL_DP, 0, 50001, label="DP optimum", linestyles='--', colors='black')
 
 ax.grid(True, alpha=0.6)
 plt.legend(fontsize=15, loc="lower right")
