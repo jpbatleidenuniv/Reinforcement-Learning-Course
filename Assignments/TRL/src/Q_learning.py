@@ -34,6 +34,7 @@ def q_learning(
     plot=True,
     eval_interval=500,
     add_extra_goal=False,
+    zero_reward = False
 ):
     """runs a single repetition of q_learning
     Return: rewards, a vector with the observed rewards at each timestep"""
@@ -57,6 +58,10 @@ def q_learning(
         env.goal_rewards = [100, 5]
         eval_env.goal_locations = [[7, 3], [3, 2]]
         eval_env.goal_rewards = [100, 5]
+
+    if zero_reward:
+        env.reward_per_step = 0 
+        eval_env.reward_per_step = 0 
     for i in range(n_timesteps):
         a = agent.select_action(
             s=s, policy=policy, epsilon=epsilon, temp=temp
@@ -136,6 +141,19 @@ def test():
 
     lcp.save("QLearningExtraGoal.png")
 
-
+    zero_reward_plot = LearningCurvePlot("Zero reward / step Q-learning.")
+    eval_returns, eval_timesteps = q_learning(
+        n_timesteps,
+        learning_rate,
+        gamma,
+        policy,
+        epsilon,
+        temp,
+        plot,
+        eval_interval,
+        zero_reward=True
+    )
+    zero_reward_plot.add_curve(eval_timesteps, smooth(eval_returns, window = 9), label="Zero reward / step Q-learning")
+    zero_reward_plot.save("ZeroRewardQLearning.pdf")
 if __name__ == "__main__":
     test()
