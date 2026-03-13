@@ -32,12 +32,12 @@ RESULTS2 = [
     ]
 
 LABELS2 = [
-          r"Q-learning, $\epsilon$ = 0.03",
-          r"Q-learning, $\epsilon$ = 0.1",
-          r"Q-learning, $\epsilon$ = 0.3",
-          r"SARSA, $\epsilon$ = 0.03",
-          r"SARSA, $\epsilon$ = 0.1",
-          r"SARSA, $\epsilon$ = 0.3"
+          r"$\epsilon$-greedy, $\epsilon$ = 0.03",
+          r"$\epsilon$-greedy, $\epsilon$ = 0.1",
+          r"$\epsilon$-greedy, $\epsilon$ = 0.3",
+          r"Softmax, $\tau$ = 0.01",
+          r"Softmax, $\tau$ = 0.1",
+          r"Softmax, $\tau$ = 1"
          ]
 
 RESULTS3 = [
@@ -54,7 +54,7 @@ LABELS3 = [
           r"Monte Carlo"
          ]
 
-TITLES = ["on_off_policy.pdf", "exploration_results.pdf", "Nstep.pdf"]
+TITLES = ["on_off_policy.png", "exploration_results.png", "Nstep.png"]
 
 
 
@@ -68,7 +68,7 @@ ax.set_ylabel("Episode Average Return", fontsize=FONT_SIZE)
 ax.tick_params(axis="both", which="major", labelsize=FONT_SIZE)
 ax.tick_params(axis="both", which="minor", labelsize=FONT_SIZE)
 
-for file, label in zip(RESULTS3, LABELS3):
+for file, label in zip(RESULTS2, LABELS2):
     df = pd.read_csv(file)
     mean = smooth(df.mean(axis=0), window=SMOOTHING_WINDOW)
     ax.plot(np.arange(len(mean))*1000, mean, label=label)
@@ -79,7 +79,7 @@ if OPTIMAL_DP is not None:
 
 ax.grid(True, alpha=0.6)
 plt.legend(fontsize=15, loc="center right")
-fig.savefig(TITLES[2])
+fig.savefig(TITLES[1])
 plt.show()
 
 
