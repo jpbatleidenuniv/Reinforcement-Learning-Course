@@ -8,9 +8,8 @@ By Thomas Moerland
 
 import matplotlib
 
-# matplotlib.use('Qt5Agg') # 'TkAgg'
-# matplotlib.use('Agg') # Not interactive
-# matplotlib.use('TkAgg') # 'TkAgg'
+# matplotlib.use("Qt5Agg")  # 'TkAgg'
+matplotlib.use("TkAgg")
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle, Circle, Arrow
@@ -274,7 +273,8 @@ class StochasticWindyGridworld:
                         self.goal_locations
                     ):
                         if np.all(
-                            next_state_without_wind == goal
+                            next_location_without_wind
+                            == goal
                         ):  # reached a goal!
                             r_sas[
                                 s,
