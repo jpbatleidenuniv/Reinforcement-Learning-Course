@@ -1,9 +1,22 @@
 import gymnasium as gym
-from gymnasium.wrappers import RecordEpisodeStatistics, RecordVideo
 import numpy as np
 
+from tqdm import tqdm
+from DQN import DQNAgent
+from gymnasium.wrappers import RecordEpisodeStatistics, RecordVideo
+
+
+naive_agent = DQNAgent(hidden_layers=2,
+                       width=64,
+                       output_len=2,
+                       input_len=4,
+                       learning_rate=0.001,
+                       policy='epsilon-greedy',
+                       epsilon=0.01
+)
+
 # Configuration
-num_eval_episodes = 1
+num_eval_episodes = 4000
 env_name = "CartPole-v1"  # Replace with your environment
 
 # Create environment with recording capabilities
@@ -14,7 +27,7 @@ env = RecordVideo(
     env,
     video_folder="cartpole-agent",    # Folder to save videos
     name_prefix="eval",               # Prefix for video filenames
-    episode_trigger=lambda x: True    # Record every episode
+    episode_trigger=lambda x: False    # Record every episode
 )
 
 # Add episode statistics tracking
@@ -23,23 +36,50 @@ env = RecordEpisodeStatistics(env, buffer_length=num_eval_episodes)
 print(f"Starting evaluation for {num_eval_episodes} episodes...")
 print(f"Videos will be saved to: cartpole-agent/")
 
+
+pbar = tqdm(total=num_eval_episodes, desc="Training Episodes", unit="episode")
+
 for episode_num in range(num_eval_episodes):
+    # Initial state
     obs, info = env.reset()
+    Q_s = naive_agent.eval_Q(state=obs)
+
     episode_reward = 0
     step_count = 0
-    print(obs)
     episode_over = False
+    total_loss = 0
     while not episode_over:
+        naive_agent.optimizer.zero_grad()
+
         # Replace this with your trained agent's policy
-        action = env.action_space.sample()  # Random policy for demonstration
-
+        action, _ =  naive_agent.action(Q_s)
+        Q_sa = Q_s[action]
         obs, reward, terminated, truncated, info = env.step(action)
-        episode_reward += reward
-        step_count += 1
 
+        Q_s_next = naive_agent.eval_Q(obs)
+        _, optimal_Q_s_next = naive_agent.action(Q_s_next, optimal=True)
+        loss = naive_agent.loss(Q_sa=Q_sa, optimal_Q_sa_next=optimal_Q_s_next, r=float(reward))
+        loss.backward()
+        naive_agent.optimizer.step()
+
+        Q_s = Q_s_next.detach()
+
+
+        total_loss += loss
+        episode_reward += float(reward)
+        step_count += 1
         episode_over = terminated or truncated
 
-    print(f"Episode {episode_num + 1}: {step_count} steps, reward = {episode_reward}")
+    if episode_num % 100 == 0:
+        pbar.set_postfix({
+            'Reward': f'{episode_reward:.1f}',
+            'Loss': f'{total_loss / step_count:.4f}',
+            'Steps': step_count
+            })
+    #     print(f"Episode {episode_num + 1}: {step_count} steps, reward = {episode_reward}, average loss = {total_loss / step_count}")
+
+
+    pbar.update(1)
 
 env.close()
 
