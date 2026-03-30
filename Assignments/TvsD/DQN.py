@@ -42,16 +42,18 @@ class TargetNetworkLoss(Loss):
                  epsilon: float = 0.1,
                  temp: float = 0.1,
                  update_count: int = 1,
+                 batch_size: int = 1,
                  **kwargs) -> None:
 
         super().__init__(policy=policy, epsilon=epsilon, temp=temp, **kwargs)
         self.update_count = update_count
+        self.batch_size = batch_size
 
     def loss_target(self, Q_sa: torch.Tensor, optimal_Q_sa_next: torch.Tensor,
                     r: torch.Tensor, gamma: float, count: int) -> tuple[torch.Tensor, bool]:
         # FIX 2: gamma applied here in the Bellman target, not inside action()
         l = torch.square(r + gamma * optimal_Q_sa_next - Q_sa)
-        update = (count % self.update_count == 0)
+        update = (count % (self.update_count * self.batch_size) == 0)
         return l, update
     
 
@@ -143,6 +145,7 @@ class DQNAgent(NN, NaiveLoss, TargetNetworkLoss):
                  output_len: int = 2,
                  input_len: int = 4,
                  learning_rate: float = 0.01,
+                 batch_size: int = 1,
                  policy: str = "epsilon-greedy",
                  epsilon: float = 0.01,
                  temp: float = 0.01,
@@ -162,10 +165,11 @@ class DQNAgent(NN, NaiveLoss, TargetNetworkLoss):
             epsilon=epsilon,
             temp=temp,
             update_count=update_count,
+            batch_size=batch_size
         )
 
         self.use_buffer = buffer
-        self.keep_target_network = target_network
+        self.use_target = target_network
         self.gamma = gamma
 
         if buffer:
@@ -234,7 +238,7 @@ class DQNAgent(NN, NaiveLoss, TargetNetworkLoss):
         Q_sa = Q_s[action_t.item()]
 
         # Compute optimal Q(s',a') using target network if requested, else current network
-        if self.keep_target_network:
+        if self.use_target:
             # Use target network for the next state
             Q_s_next = self.eval_Q(next_state_t.numpy(), target=True)
         else:
@@ -243,7 +247,7 @@ class DQNAgent(NN, NaiveLoss, TargetNetworkLoss):
         optimal_Q_sa_next = torch.max(Q_s_next) if not done_t.item() else torch.tensor(0.0, dtype=torch.float32)
 
         # Compute loss
-        if self.keep_target_network:
+        if self.use_target:
             assert count is not None, "count is required when using a target network"
             l, update = self.loss_target(
                 Q_sa=Q_sa, optimal_Q_sa_next=optimal_Q_sa_next,

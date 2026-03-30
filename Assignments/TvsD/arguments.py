@@ -5,6 +5,7 @@ class args():
     # ------------ Experimental setup variables ------------
     num_eval_episodes: int = 4000
     recording_interval: int = 400
+    maximum_steps: int = 10**6
 
     # ------------ Agent variables ------------
     # Buffer
@@ -24,8 +25,9 @@ class args():
     layers: int = 2
     width: int = 64
     output_len: int = 2
-    input_len: int = 2
+    input_len: int = 4
     lr: float = 0.000005
+    batch_size: int = 5
 
     # ------------ LR Scheduler ------------
     reduce_factor: float = 0.5
