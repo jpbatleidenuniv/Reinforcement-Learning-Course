@@ -1,34 +1,38 @@
 import gymnasium as gym
 import numpy as np
 
+from arguments import args
 from torch import optim
 from tqdm import tqdm
 from DQN import DQNAgent
 from gymnasium.wrappers import RecordEpisodeStatistics, RecordVideo
 
 # ------------------ Environment Variables ------------------
-USE_BUFFER = False
+""" Here you can change argument variables. Look at the arguments.py file to see which arguments you want to set differently or add other arguments. Pls keep it organized. 
+Beneath is an example of how to change an argument."""
 
+# args.buffer_size = 200
+    
 
-naive_agent = DQNAgent(hidden_layers=2,
-                       width=64,
-                       output_len=2,
-                       input_len=4,
-                       learning_rate=0.000005,
-                       policy='epsilon-greedy',
-                       epsilon=0.01,
-                       target_network=False,
-                       update_count=20,
-                       buffer=USE_BUFFER, 
-                       buffer_size=100
+naive_agent = DQNAgent(hidden_layers=args.layers,
+                       width=args.width,
+                       output_len=args.output_len,
+                       input_len=args.input_len,
+                       learning_rate=args.lr,
+                       policy=args.policy,
+                       epsilon=args.epsilon,
+                       temp=args.temperature,
+                       target_network=args.target_network,
+                       update_count=args.update_target,
+                       buffer=args.buffer, 
+                       buffer_size=args.buffer_size
 )
 
+# Learning rate scheduler, might be improved aswell
 scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-    naive_agent.optimizer, mode='min', factor=0.5, patience=400
+    naive_agent.optimizer, mode='min', factor=args.reduce_factor, patience=args.patience
 )
 
-# Configuration
-num_eval_episodes = 4000
 env_name = "CartPole-v1"  # Replace with your environment
 
 # Create environment with recording capabilities
@@ -43,15 +47,15 @@ env = RecordVideo(
 )
 
 # Add episode statistics tracking
-env = RecordEpisodeStatistics(env, buffer_length=num_eval_episodes)
+env = RecordEpisodeStatistics(env, buffer_length=args.num_eval_episodes)
 
-print(f"Starting evaluation for {num_eval_episodes} episodes...")
+print(f"Starting evaluation for {args.num_eval_episodes} episodes...")
 print(f"Videos will be saved to: cartpole-agent/")
 
 
-pbar = tqdm(total=num_eval_episodes, desc="Training Episodes", unit="episode")
+pbar = tqdm(total=args.num_eval_episodes, desc="Training Episodes", unit="episode")
 
-for episode_num in range(num_eval_episodes):
+for episode_num in range(args.num_eval_episodes):
     # Initial state
     obs, info = env.reset()
     Q_s = naive_agent.eval_Q(state=obs)
@@ -103,7 +107,7 @@ for episode_num in range(num_eval_episodes):
 
     pbar.update(1)
 
-if USE_BUFFER and hasattr(naive_agent, 'buffer'):
+if args.buffer and hasattr(naive_agent, 'buffer'):
     print("Clearing buffer...")
     cleared_count = 0
     while True:
@@ -114,12 +118,6 @@ if USE_BUFFER and hasattr(naive_agent, 'buffer'):
     print(f"Cleared {cleared_count} experiences from buffer.")
 
 env.close()
-
-# # Print summary statistics
-# print(f'\nEvaluation Summary:')
-# print(f'Episode durations: {list(env.time_queue)}')
-# print(f'Episode rewards: {list(env.return_queue)}')
-# print(f'Episode lengths: {list(env.length_queue)}')
 
 # Calculate some useful metrics
 avg_reward = np.mean(env.return_queue)
