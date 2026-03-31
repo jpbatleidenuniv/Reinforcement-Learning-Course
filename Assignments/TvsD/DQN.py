@@ -1,3 +1,4 @@
+from gymnasium import Env
 import torch
 import numpy as np
 import copy
@@ -148,6 +149,29 @@ class DQNAgent(NN, NaiveLoss):
 
         return None
 
+    def evaluate(
+        self, eval_env: Env, num_episodes: int = 100
+    ) -> float:
+        returns = []
+        for _ in range(num_episodes):
+            obs, _ = eval_env.reset()
+            episode_reward = 0.0
+            episode_over = False
+
+            while not episode_over:
+                with torch.no_grad():  # ← add this
+                    Q_s = self.eval_Q(state=obs)
+                action, _ = self.action(Q_s, optimal=True)
+                obs, reward, terminated, truncated, _ = (
+                    eval_env.step(action)
+                )
+                episode_reward += float(reward)
+                episode_over = terminated or truncated
+
+            returns.append(episode_reward)
+
+        return float(np.mean(returns))
+
     def loss(
         self,
         state: np.ndarray,
@@ -170,14 +194,13 @@ class DQNAgent(NN, NaiveLoss):
         )  # eval_Q expects numpy array
         Q_sa = Q_s[int(action_t.item())]
 
-        # Compute optimal Q(s',a')
-        Q_s_next = self.eval_Q(next_state_t.numpy())
-
-        optimal_Q_sa_next = (
-            torch.max(Q_s_next)
-            if not done_t.item()
-            else torch.tensor(0.0, dtype=torch.float32)
-        )
+        with torch.no_grad():  # target should be a fixed value, not part of the graph
+            Q_s_next = self.eval_Q(next_state_t.numpy())
+            optimal_Q_sa_next = (
+                torch.max(Q_s_next)
+                if not done_t.item()
+                else torch.tensor(0.0, dtype=torch.float32)
+            )
 
         l = self.loss_naive(
             Q_sa=Q_sa,

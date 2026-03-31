@@ -1,6 +1,8 @@
+import os
 import gymnasium as gym
 import numpy as np
 from time import perf_counter
+import sys
 
 from torch import optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -10,14 +12,18 @@ from gymnasium.wrappers import (
     RecordEpisodeStatistics,
     RecordVideo,
 )
+from Helper import LearningCurvePlot, smooth
 
 
 def cartpole(
     agent: DQNAgent,
     env: gym.Env,
     scheduler: ReduceLROnPlateau,
+    eval_env: gym.Env,
     maximum_steps: int = 10**6,
     batch_size: int = 5,
+    n_eval_timesteps: int = 5000,
+    n_eval_episodes: int = 100,
 ):
     """Main function for running cartpole
 
@@ -31,6 +37,10 @@ def cartpole(
 
     # ------------------ Main simulation loop ------------------
 
+    eval_returns: list[float] = []
+    eval_timesteps: list[int] = []
+    next_eval_step: int = n_eval_episodes
+
     pbar = tqdm(
         total=maximum_steps,
         desc="Training Steps",
@@ -40,7 +50,6 @@ def cartpole(
     episode_num = 0
 
     while total_steps_taken <= maximum_steps:
-        # Initial state
         episode_num += 1
         obs, _ = env.reset()
         Q_s = agent.eval_Q(state=obs)
@@ -51,34 +60,30 @@ def cartpole(
         episode_over = False
         total_loss = 0
         obs_prev = obs
-
         batch_loss = []
         batch_counter = 0
 
         while not episode_over:
             # Replace this with your trained agent's policy
             action, _ = agent.action(Q_s)
-
             obs_prev = obs
             obs, reward, terminated, truncated, _ = (
                 env.step(action)
             )
-
             Q_s_next = agent.eval_Q(obs)
 
-            current_state = obs_prev  # you'll need to keep the previous state
-            next_state = obs
             done = terminated or truncated
 
             l = agent.loss(
-                state=current_state,
+                state=obs_prev,
                 action=action,
                 reward=float(reward),
-                next_state=next_state,
+                next_state=obs,
                 done=done,
             )
 
-            episode_over = terminated or truncated
+            episode_over = done
+
             if l is not None:
                 # Accumulate loss for current batch
                 batch_loss.append(l)
@@ -89,12 +94,11 @@ def cartpole(
                 total_loss += l.item()
 
                 if (
-                    batch_counter == batch_size
+                    batch_counter >= batch_size
                     or episode_over
                 ):
                     # Zero gradients before backward pass
                     agent.optimizer.zero_grad()
-
                     sum(batch_loss).backward()
                     agent.optimizer.step()
 
@@ -106,6 +110,15 @@ def cartpole(
             episode_reward += float(reward)
             total_steps_taken += 1
             pbar.update(1)
+
+            # --- Evaluation at fixed timestep intervals ---
+            if total_steps_taken >= next_eval_step:
+                mean_return = agent.evaluate(
+                    eval_env, n_eval_episodes
+                )
+                eval_returns.append(mean_return)
+                eval_timesteps.append(total_steps_taken)
+                next_eval_step += n_eval_timesteps
 
         if step_count > 0:
             scheduler.step(metrics=total_loss / step_count)
@@ -121,83 +134,80 @@ def cartpole(
                     "lr": scheduler.get_last_lr()[0],
                 }
             )
-            time_0 = time_1
+            elapsed = time_1 - time_0
 
     env.close()
+    return eval_returns, eval_timesteps
 
 
 if __name__ == "__main__":
-    # buffer_size = 200
-    batch_size = 20
-    num_eval_episodes: int = 4000
-    maximum_steps: int = 10**6
+    import sys
+    from exploration import EXPLORATIONS
 
-    # Policy
-    policy: str = (
-        "epsilon-greedy"  # ['epsilon-greedy', 'softmax']
-    )
-    epsilon: float = 0.01
-    temperature: float = 1.0
+    if len(sys.argv) < 2:
+        print("Usage: python Cartpole.py <exp_id>")
+        print("Available experiments:")
+        for i, exp in enumerate(EXPLORATIONS):
+            print(f"  {i}: {exp.name}")
+        sys.exit(1)
 
-    # NN
-    layers: int = 2
-    width: int = 64
-    output_len: int = 2
-    input_len: int = 4
-    lr: float = 5e-3
-    batch_size: int = 5
+    exp_id = int(sys.argv[1])
+    exp = EXPLORATIONS[exp_id]
 
-    # ------------ LR Scheduler ------------
-    reduce_factor: float = 0.5
-    patience: int = 400
+    print(f"\nRunning experiment [{exp_id}]: {exp.name}")
 
     # ------------------ Environment ------------------
-    env_name = (
-        "CartPole-v1"  # Replace with your environment
-    )
-    env = gym.make(
-        env_name, render_mode="rgb_array"
-    )  # rgb_array needed for video recording
-    # Add video recording for every episode
+    env = gym.make("CartPole-v1", render_mode="rgb_array")
     env = RecordVideo(
         env,
-        video_folder="cartpole-agent",  # Folder to save videos
-        name_prefix="eval",  # Prefix for video filenames
-        episode_trigger=lambda x: x % 400
-        == 0,  # Record every episode
+        video_folder=f"cartpole-videos/{exp.name}",
+        name_prefix="eval",
+        episode_trigger=lambda x: x % 400 == 0,
     )
-    # Add episode statistics tracking
     env = RecordEpisodeStatistics(
-        env, buffer_length=num_eval_episodes
+        env, buffer_length=exp.n_eval_episodes
     )
 
-    print(f"Batch size has been set to {batch_size}")
-    print(
-        f"Starting evaluation for {num_eval_episodes} episodes..."
-    )
+    eval_env = gym.make("CartPole-v1")
 
     # ------------------ Agent ------------------
     agent = DQNAgent(
-        hidden_layers=layers,
-        width=width,
-        learning_rate=lr,
-        batch_size=batch_size,
-        policy=policy,
-        epsilon=epsilon,
-        temp=temperature,
+        hidden_layers=exp.layers,
+        width=exp.width,
+        learning_rate=exp.lr,
+        batch_size=exp.batch_size,
+        policy=exp.policy,
+        epsilon=exp.epsilon,
+        temp=exp.temperature,
     )
 
-    # Learning rate scheduler, might be improved aswell
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         agent.optimizer,
         mode="min",
-        factor=reduce_factor,
-        patience=patience,
+        factor=exp.reduce_factor,
+        patience=exp.patience,
     )
 
-    cartpole(agent, env, scheduler)
+    print(f"Batch size: {exp.batch_size}")
+    print(
+        f"Policy: {exp.policy}, epsilon: {exp.epsilon}, temp: {exp.temperature}"
+    )
 
-    # Calculate some useful metrics
+    # ------------------ Run ------------------
+    eval_returns, eval_timesteps = cartpole(
+        agent=agent,
+        env=env,
+        scheduler=scheduler,
+        eval_env=eval_env,
+        maximum_steps=exp.maximum_steps,
+        batch_size=exp.batch_size,
+        n_eval_timesteps=exp.n_eval_timesteps,
+        n_eval_episodes=exp.n_eval_episodes,
+    )
+
+    eval_env.close()
+
+    # ------------------ Metrics ------------------
     avg_reward = np.mean(env.return_queue)
     avg_length = np.mean(env.length_queue)
     std_reward = np.std(env.return_queue)
@@ -209,3 +219,15 @@ if __name__ == "__main__":
     print(
         f"Success rate: {sum(1 for r in env.return_queue if r > 0) / len(env.return_queue):.1%}"
     )
+
+    # ------------------ Save results ------------------
+    os.makedirs("results", exist_ok=True)
+    np.save(
+        f"results/{exp.name}_eval_returns.npy",
+        np.array(eval_returns),
+    )
+    np.save(
+        f"results/{exp.name}_eval_timesteps.npy",
+        np.array(eval_timesteps),
+    )
+    print(f"Results saved to results/{exp.name}_*.npy")
