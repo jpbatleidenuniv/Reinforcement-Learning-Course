@@ -1,12 +1,9 @@
 from dataclasses import dataclass
 
-@dataclass
-class args():
-    # ------------ Experimental setup variables ------------
-    num_eval_episodes: int = 4000
-    recording_interval: int = 400
-    maximum_steps: int = 10**6
 
+@dataclass
+class ExplorationSpec:
+    name: str
     # ------------ Agent variables ------------
     # Buffer
     buffer: bool = False
@@ -17,18 +14,21 @@ class args():
     update_target: int = 20
 
     # Policy
-    policy: str = 'epsilon-greedy' # ['epsilon-greedy', 'softmax']
-    epsilon: float = 0.01
+    policy: str = (
+        "epsilon-greedy"  # ['epsilon-greedy', 'softmax']
+    )
+    epsilon: float = 0.1
     temperature: float = 1.0
 
     # NN
     layers: int = 2
     width: int = 64
-    output_len: int = 2
-    input_len: int = 4
-    lr: float = 0.000005
+    lr: float = 5e-4
     batch_size: int = 5
 
     # ------------ LR Scheduler ------------
     reduce_factor: float = 0.5
-    patience: int = 400
+    patience: int = 200
+
+
+EXPLORATIONS = [ExplorationSpec("")]
