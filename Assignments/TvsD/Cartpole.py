@@ -80,6 +80,7 @@ def cartpole(
                 reward=float(reward),
                 next_state=obs,
                 done=done,
+                count=total_steps_taken
             )
 
             episode_over = done
@@ -179,6 +180,8 @@ if __name__ == "__main__":
         policy=exp.policy,
         epsilon=exp.epsilon,
         temp=exp.temperature,
+        target=exp.target_network
+
     )
 
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(

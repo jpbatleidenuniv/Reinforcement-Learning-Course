@@ -53,6 +53,47 @@ class NaiveLoss(Loss):
         )
         return l
 
+class TargetLoss(Loss):
+
+    def __init__(
+            self,
+            policy: str = "epsilon-greedy",
+            epsilon: float = 0.1, 
+            temp: float = 0.1,
+            update_frequence: int = 1,
+            **kwargs
+        ) -> None:
+
+        super().__init__(
+            policy=policy,
+            epsilon=epsilon,
+            temp=temp,
+            **kwargs
+        )
+
+        self.update_frequence = update_frequence
+
+    def loss_target(
+        self,
+        Q_sa: torch.Tensor,
+        optimal_Q_sa_next: torch.Tensor,
+        r: torch.Tensor,
+        gamma: float,
+        count: int
+    ) -> tuple[torch.Tensor, bool]:
+        
+        l = torch.square(
+            r + gamma * optimal_Q_sa_next - Q_sa
+        )
+
+        update = False
+        if count % self.update_frequence == 0:
+            update = True
+
+        return l, update
+
+
+
 
 class NN(nn.Module):
     def __init__(
@@ -88,7 +129,7 @@ class NN(nn.Module):
         return self.network(x_tensor)
 
 
-class DQNAgent(NN, NaiveLoss):
+class DQNAgent(NN, NaiveLoss, TargetLoss):
     def __init__(
         self,
         hidden_layers: int,
@@ -99,7 +140,10 @@ class DQNAgent(NN, NaiveLoss):
         epsilon: float = 0.01,
         temp: float = 0.01,
         gamma: float = 0.99,
+        target: bool = False,
+        update_frequence: int = 100,
     ) -> None:
+        
         super().__init__(
             hidden_layers=hidden_layers,
             width=width,
@@ -107,14 +151,20 @@ class DQNAgent(NN, NaiveLoss):
             policy=policy,
             epsilon=epsilon,
             temp=temp,
+            update_frequence=update_frequence
         )
 
         self.gamma = gamma
+        self.target = target
+
+        if self.target:
+            self.target_network = copy.deepcopy(self.network)
 
         if self.policy not in ["epsilon-greedy", "softmax"]:
             raise ValueError(
                 "Policy must be 'epsilon-greedy' or 'softmax'"
             )
+
 
     def action(
         self, Q_s: torch.Tensor, optimal: bool = False
@@ -130,8 +180,13 @@ class DQNAgent(NN, NaiveLoss):
         assert a is not None
         return a, optimal_Q_sa
 
-    def eval_Q(self, state: np.ndarray) -> torch.Tensor:
+
+    def eval_Q(self, state: np.ndarray, target=False) -> torch.Tensor:
+        if target:
+            return self.target_network(state)
+
         return self.forward(state)
+
 
     def _policy(self, Q_s: torch.Tensor) -> int | None:
         if self.policy == "epsilon-greedy":
@@ -159,12 +214,11 @@ class DQNAgent(NN, NaiveLoss):
             episode_over = False
 
             while not episode_over:
-                with torch.no_grad():  # ← add this
+                with torch.no_grad():
                     Q_s = self.eval_Q(state=obs)
-                action, _ = self.action(Q_s, optimal=True)
-                obs, reward, terminated, truncated, _ = (
-                    eval_env.step(action)
-                )
+                    action, _ = self.action(Q_s, optimal=True)
+                    obs, reward, terminated, truncated, _ = eval_env.step(action)
+                    
                 episode_reward += float(reward)
                 episode_over = terminated or truncated
 
@@ -179,6 +233,7 @@ class DQNAgent(NN, NaiveLoss):
         reward: float,
         next_state: np.ndarray,
         done: bool,
+        count: int
     ) -> torch.Tensor | None:
         state_t = torch.tensor(state, dtype=torch.float32)
         action_t = torch.tensor(action, dtype=torch.long)
@@ -195,18 +250,28 @@ class DQNAgent(NN, NaiveLoss):
         Q_sa = Q_s[int(action_t.item())]
 
         with torch.no_grad():  # target should be a fixed value, not part of the graph
-            Q_s_next = self.eval_Q(next_state_t.numpy())
+            Q_s_next = self.eval_Q(next_state_t.numpy(), target=self.target) # If self.target, use target network to evaluate optimal_Q_sa_next
             optimal_Q_sa_next = (
                 torch.max(Q_s_next)
                 if not done_t.item()
                 else torch.tensor(0.0, dtype=torch.float32)
             )
 
-        l = self.loss_naive(
-            Q_sa=Q_sa,
-            optimal_Q_sa_next=optimal_Q_sa_next,
-            r=reward_t,
-            gamma=self.gamma,
-        )
+        if self.target: # Use target loss, which tracks if the target network should be updated
+            l, update = self.loss_target(Q_sa=Q_sa,
+                                        optimal_Q_sa_next=optimal_Q_sa_next,
+                                        r=reward_t,
+                                        gamma=self.gamma,
+                                        count=count)
+            if update:
+                self.target_network = copy.deepcopy(self.network)
+
+        else:
+            l = self.loss_naive(
+                Q_sa=Q_sa,
+                optimal_Q_sa_next=optimal_Q_sa_next,
+                r=reward_t,
+                gamma=self.gamma,
+            )
 
         return l

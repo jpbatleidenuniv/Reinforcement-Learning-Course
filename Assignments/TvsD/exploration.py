@@ -12,7 +12,7 @@ class ExplorationSpec:
 
     # Target network
     target_network: bool = False
-    update_target: int = 20
+    update_target: int = 100
 
     # Policy
     policy: str = (
