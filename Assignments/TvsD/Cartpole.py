@@ -6,7 +6,7 @@ import torch
 from arguments import args
 from torch import optim
 from tqdm import tqdm
-from DQN import DQNAgent
+from Assignments.TvsD.DQN_Target import DQNAgent
 from gymnasium.wrappers import RecordEpisodeStatistics, RecordVideo
 
 # ------------------ Environment Variables ------------------
@@ -52,8 +52,6 @@ naive_agent = DQNAgent(hidden_layers=args.layers,
                        temp=args.temperature,
                        target_network=args.target_network,
                        update_count=args.update_target,
-                       buffer=args.buffer, 
-                       buffer_size=args.buffer_size,
                        batch_size=args.batch_size
 )
 

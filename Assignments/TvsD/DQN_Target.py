@@ -55,45 +55,6 @@ class TargetNetworkLoss(Loss):
         l = torch.square(r + gamma * optimal_Q_sa_next - Q_sa)
         update = (count % (self.update_count * self.batch_size) == 0)
         return l, update
-    
-
-class Buffer():
-    def __init__(self, buffer_size: int = 200) -> None:
-        self.buffer = []
-        self.buffer_size = buffer_size
-        self.buffer_len = 0
-        self.position = 0
-
-    def pop(self, state: np.ndarray, action: int, reward: float, next_state: np.ndarray, done: bool):
-        """
-        Store an experience. If buffer is full, replace a random slot and return the evicted experience.
-        All tensors are detached and stored as tensors.
-        """
-        # Convert to tensors (detach not needed because state/action are not from torch)
-        state_t = torch.tensor(state, dtype=torch.float32)
-        next_state_t = torch.tensor(next_state, dtype=torch.float32)
-        action_t = torch.tensor(action, dtype=torch.long)
-        reward_t = torch.tensor(reward, dtype=torch.float32)
-        done_t = torch.tensor(done, dtype=torch.bool)
-
-        if self.buffer_len < self.buffer_size:
-            self.buffer.append((state_t, action_t, reward_t, next_state_t, done_t))
-            self.buffer_len += 1
-            return None
-        else:
-            idx = np.random.randint(0, self.buffer_size)
-            evicted = self.buffer[idx]
-            self.buffer[idx] = (state_t, action_t, reward_t, next_state_t, done_t)
-            return evicted
-
-    def clear(self):
-        """Remove and return a random experience, or None if empty."""
-        if self.buffer_len == 0:
-            return None
-        idx = np.random.randint(0, self.buffer_len)
-        evicted = self.buffer.pop(idx)
-        self.buffer_len -= 1
-        return evicted
 
 
 
@@ -151,9 +112,7 @@ class DQNAgent(NN, NaiveLoss, TargetNetworkLoss):
                  temp: float = 0.01,
                  gamma: float = 0.99,
                  target_network: bool = False,
-                 update_count: int = 1,
-                 buffer: bool = False,
-                 buffer_size: int = 200) -> None:
+                 update_count: int = 1) -> None:
         
         super().__init__(
             hidden_layers=hidden_layers,
@@ -168,12 +127,8 @@ class DQNAgent(NN, NaiveLoss, TargetNetworkLoss):
             batch_size=batch_size
         )
 
-        self.use_buffer = buffer
         self.use_target = target_network
         self.gamma = gamma
-
-        if buffer:
-            self.buffer = Buffer(buffer_size=buffer_size)
 
         if target_network:
             self.update_target()  # initialise target network weights
@@ -220,18 +175,12 @@ class DQNAgent(NN, NaiveLoss, TargetNetworkLoss):
     def loss(self, state: np.ndarray, action: int, reward: float, next_state: np.ndarray, done: bool,
             count: int | None = None) -> torch.Tensor | None:
 
-        if self.use_buffer:
-            result = self.buffer.pop(state, action, reward, next_state, done)
-            if result is None:
-                return None
-            state_t, action_t, reward_t, next_state_t, done_t = result
-        else:
-            # If buffer is not used, convert inputs to tensors
-            state_t = torch.tensor(state, dtype=torch.float32)
-            action_t = torch.tensor(action, dtype=torch.long)
-            reward_t = torch.tensor(reward, dtype=torch.float32)
-            next_state_t = torch.tensor(next_state, dtype=torch.float32)
-            done_t = torch.tensor(done, dtype=torch.bool)
+        # If buffer is not used, convert inputs to tensors
+        state_t = torch.tensor(state, dtype=torch.float32)
+        action_t = torch.tensor(action, dtype=torch.long)
+        reward_t = torch.tensor(reward, dtype=torch.float32)
+        next_state_t = torch.tensor(next_state, dtype=torch.float32)
+        done_t = torch.tensor(done, dtype=torch.bool)
 
         # Compute Q(s,a) using the current network
         Q_s = self.eval_Q(state_t.numpy())  # eval_Q expects numpy array
