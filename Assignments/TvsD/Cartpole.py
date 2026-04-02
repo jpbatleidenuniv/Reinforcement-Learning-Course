@@ -75,16 +75,16 @@ def cartpole(
 
             done = terminated or truncated
 
-            sequences = buffer.get_sequence(state=obs_prev, 
-                                            next_state=obs,
-                                            action=action,
-                                            reward=float(reward),
-                                            done=done)
-            
+            sequences = buffer.get_sequence(
+                state=obs_prev,
+                next_state=obs,
+                action=action,
+                reward=float(reward),
+                done=done,
+            )
 
             l = agent.loss(
-                sequences=sequences,
-                count=total_steps_taken
+                sequences=sequences, count=total_steps_taken
             )
 
             episode_over = done
@@ -102,7 +102,10 @@ def cartpole(
                     step_count += 1
                     total_loss += l.item()
 
-                    if batch_counter >= batch_size or episode_over:
+                    if (
+                        batch_counter >= batch_size
+                        or episode_over
+                    ):
                         agent.optimizer.zero_grad()
                         sum(batch_loss).backward()
                         agent.optimizer.step()
@@ -178,7 +181,7 @@ if __name__ == "__main__":
         buffer=exp.buffer,
         buffer_size=exp.buffer_size,
         min_buffer_size=exp.min_buffer_size,
-        batch_size=exp.batch_size
+        batch_size=exp.batch_size,
     )
 
     agent = DQNAgent(
@@ -188,7 +191,7 @@ if __name__ == "__main__":
         policy=exp.policy,
         epsilon=exp.epsilon,
         temp=exp.temperature,
-        target=exp.target_network
+        target=exp.target_network,
     )
 
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
@@ -213,7 +216,7 @@ if __name__ == "__main__":
         batch_size=exp.batch_size,
         n_eval_timesteps=exp.n_eval_timesteps,
         n_eval_episodes=exp.n_eval_episodes,
-        buffer=experience_replay
+        buffer=experience_replay,
     )
 
     eval_env.close()
