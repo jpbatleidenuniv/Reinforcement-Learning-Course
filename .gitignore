@@ -5,6 +5,7 @@ build/
 dist/
 wheels/
 *.egg-info
+*AskePlaat.pdf
 
 # Virtual environments
 .venv
