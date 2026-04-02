@@ -7,7 +7,7 @@ import sys
 from torch import optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from tqdm import tqdm
-from DQN import DQNAgent
+from DQN import DQNAgent, ExperienceReplay
 from gymnasium.wrappers import (
     RecordEpisodeStatistics,
     RecordVideo,
@@ -17,6 +17,7 @@ from Helper import LearningCurvePlot, smooth
 
 def cartpole(
     agent: DQNAgent,
+    buffer: ExperienceReplay,
     env: gym.Env,
     scheduler: ReduceLROnPlateau,
     eval_env: gym.Env,
@@ -39,7 +40,7 @@ def cartpole(
 
     eval_returns: list[float] = []
     eval_timesteps: list[int] = []
-    next_eval_step: int = n_eval_episodes
+    next_eval_step: int = n_eval_timesteps
 
     pbar = tqdm(
         total=maximum_steps,
@@ -74,38 +75,39 @@ def cartpole(
 
             done = terminated or truncated
 
+            sequences = buffer.get_sequence(state=obs_prev, 
+                                            next_state=obs,
+                                            action=action,
+                                            reward=float(reward),
+                                            done=done)
+            
+
             l = agent.loss(
-                state=obs_prev,
-                action=action,
-                reward=float(reward),
-                next_state=obs,
-                done=done,
+                sequences=sequences,
                 count=total_steps_taken
             )
 
             episode_over = done
 
             if l is not None:
-                # Accumulate loss for current batch
-                batch_loss.append(l)
-                batch_counter += 1
-
-                # Update step count and total loss (use .item() to detach from graph)
-                step_count += 1
-                total_loss += l.item()
-
-                if (
-                    batch_counter >= batch_size
-                    or episode_over
-                ):
-                    # Zero gradients before backward pass
+                if buffer.use_buffer:
+                    # Replay buffer already returns a full batch mean loss, backprop immediately
                     agent.optimizer.zero_grad()
-                    sum(batch_loss).backward()
+                    l.backward()
                     agent.optimizer.step()
+                else:
+                    # Accumulate loss for mini-batch updates
+                    batch_loss.append(l)
+                    batch_counter += 1
+                    step_count += 1
+                    total_loss += l.item()
 
-                    # Reset batch accumulators
-                    batch_loss = []
-                    batch_counter = 0
+                    if batch_counter >= batch_size or episode_over:
+                        agent.optimizer.zero_grad()
+                        sum(batch_loss).backward()
+                        agent.optimizer.step()
+                        batch_loss = []
+                        batch_counter = 0
 
             Q_s = Q_s_next.detach()
             episode_reward += float(reward)
@@ -172,16 +174,21 @@ if __name__ == "__main__":
     eval_env = gym.make("CartPole-v1")
 
     # ------------------ Agent ------------------
+    experience_replay = ExperienceReplay(
+        buffer=exp.buffer,
+        buffer_size=exp.buffer_size,
+        min_buffer_size=exp.min_buffer_size,
+        batch_size=exp.batch_size
+    )
+
     agent = DQNAgent(
         hidden_layers=exp.layers,
         width=exp.width,
         learning_rate=exp.lr,
-        batch_size=exp.batch_size,
         policy=exp.policy,
         epsilon=exp.epsilon,
         temp=exp.temperature,
         target=exp.target_network
-
     )
 
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
@@ -206,6 +213,7 @@ if __name__ == "__main__":
         batch_size=exp.batch_size,
         n_eval_timesteps=exp.n_eval_timesteps,
         n_eval_episodes=exp.n_eval_episodes,
+        buffer=experience_replay
     )
 
     eval_env.close()

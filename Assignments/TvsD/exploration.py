@@ -8,7 +8,9 @@ class ExplorationSpec:
     # ------------ Agent variables ------------
     # Buffer
     buffer: bool = False
-    buffer_size: int = 100
+    buffer_size: int = 100000
+    min_buffer_size: int = 1000
+
 
     # Target network
     target_network: bool = False

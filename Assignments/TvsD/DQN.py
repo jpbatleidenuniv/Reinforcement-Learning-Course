@@ -8,90 +8,65 @@ from torch import optim
 from numpy.random import rand, choice
 
 
-class Loss(nn.Module):
-    def __init__(
-        self,
-        policy: str = "epsilon-greedy",
-        epsilon: float = 0.1,
-        temp: float = 0.1,
-        **kwargs,
-    ) -> None:
-        super().__init__(
-            **kwargs
-        )  # passes any remaining kwargs to nn.Module
-        self.policy = policy
-        self.epsilon = epsilon
-        self.temp = temp
-        assert 0 <= epsilon <= 1
-
-
-class NaiveLoss(Loss):
-    def __init__(
-        self,
-        policy: str = "epsilon-greedy",
-        epsilon: float = 0.1,
-        temp: float = 0.1,
-        **kwargs,
-    ) -> None:
-        super().__init__(
-            policy=policy,
-            epsilon=epsilon,
-            temp=temp,
-            **kwargs,
-        )
-
-    def loss_naive(
-        self,
-        Q_sa: torch.Tensor,
-        optimal_Q_sa_next: torch.Tensor,
-        r: torch.Tensor,
-        gamma: float,
-    ) -> torch.Tensor:
-        # FIX 2: gamma applied here in the Bellman target, not inside action()
-        l = torch.square(
-            r + gamma * optimal_Q_sa_next - Q_sa
-        )
-        return l
-
-class TargetLoss(Loss):
-
-    def __init__(
-            self,
-            policy: str = "epsilon-greedy",
-            epsilon: float = 0.1, 
-            temp: float = 0.1,
-            update_frequence: int = 1,
-            **kwargs
-        ) -> None:
-
-        super().__init__(
-            policy=policy,
-            epsilon=epsilon,
-            temp=temp,
-            **kwargs
-        )
-
-        self.update_frequence = update_frequence
-
-    def loss_target(
-        self,
-        Q_sa: torch.Tensor,
-        optimal_Q_sa_next: torch.Tensor,
-        r: torch.Tensor,
-        gamma: float,
-        count: int
-    ) -> tuple[torch.Tensor, bool]:
+class ExperienceReplay():
+    def __init__(self,
+                 buffer: bool = False,
+                 buffer_size: int = 100000,
+                 min_buffer_size: int = 1000,
+                 batch_size: int = 200) -> None:
         
-        l = torch.square(
-            r + gamma * optimal_Q_sa_next - Q_sa
-        )
+        self.use_buffer = buffer
+        self.max_buffer_size = buffer_size
+        self.min_buffer_size = min_buffer_size
+        self.buffer = {}
+        self.total_steps_seen = 0
+        self.len_buffer = 0
+        self.batch_size = batch_size
 
-        update = False
-        if count % self.update_frequence == 0:
-            update = True
+    def get_sequence(self, 
+                     state: np.ndarray, 
+                     next_state: np.ndarray, 
+                     action: int,
+                     reward: int|float, 
+                     done: bool) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor] | None:
+        
+        # Create the transition tuple
+        transition = (state, action, next_state, reward, done)
 
-        return l, update
+        if not self.use_buffer:
+            return (
+                torch.tensor(np.array([state]), dtype=torch.float32),
+                torch.tensor([action], dtype=torch.long),
+                torch.tensor(np.array([next_state]), dtype=torch.float32),
+                torch.tensor([reward], dtype=torch.float32),
+                torch.tensor([done], dtype=torch.bool)
+            )
 
+        # Use modulo to wrap the index back to 0 when it hits max_buffer_size, this will always replace the oldest transition tuple in the buffer
+        write_index = self.total_steps_seen % self.max_buffer_size
+        self.buffer[write_index] = transition
+        self.total_steps_seen += 1
+
+        # If the buffer is smaller than the minimal buffer size, we dont train
+        if self.total_steps_seen < self.min_buffer_size:
+            return None
+        
+        self.len_buffer = min(self.total_steps_seen, self.max_buffer_size)
+
+        # Sample random transitions
+        idx = np.random.randint(0, self.len_buffer, self.batch_size)
+        batch = [self.buffer[i] for i in idx]
+
+        # Makes tuples of lists 
+        states, actions, next_states, rewards, dones = zip(*batch)
+
+        tensor_batch = (torch.tensor(np.array(states), dtype=torch.float32),
+                        torch.tensor(actions, dtype=torch.long),
+                        torch.tensor(np.array(next_states), dtype=torch.float32),
+                        torch.tensor(np.array(rewards), dtype=torch.float32),
+                        torch.tensor(dones, dtype=torch.bool))
+        
+        return tensor_batch
 
 
 
@@ -124,18 +99,18 @@ class NN(nn.Module):
         layers.append(nn.Linear(self.w, 2))
         return nn.Sequential(*layers)
 
-    def forward(self, x: np.ndarray) -> torch.Tensor:
-        x_tensor = torch.tensor(x, dtype=torch.float32)
-        return self.network(x_tensor)
+    def forward(self, x: np.ndarray | torch.Tensor) -> torch.Tensor:
+        if isinstance(x, np.ndarray):
+            x = torch.tensor(x, dtype=torch.float32)
+        return self.network(x)
 
 
-class DQNAgent(NN, NaiveLoss, TargetLoss):
+class DQNAgent(NN):
     def __init__(
         self,
         hidden_layers: int,
         width: int,
         learning_rate: float = 0.01,
-        batch_size: int = 1,
         policy: str = "epsilon-greedy",
         epsilon: float = 0.01,
         temp: float = 0.01,
@@ -147,13 +122,13 @@ class DQNAgent(NN, NaiveLoss, TargetLoss):
         super().__init__(
             hidden_layers=hidden_layers,
             width=width,
-            learning_rate=learning_rate,
-            policy=policy,
-            epsilon=epsilon,
-            temp=temp,
-            update_frequence=update_frequence
+            learning_rate=learning_rate
         )
 
+        self.temp = temp
+        self.policy = policy
+        self.epsilon = epsilon
+        self.update_frequence = update_frequence
         self.gamma = gamma
         self.target = target
 
@@ -181,7 +156,7 @@ class DQNAgent(NN, NaiveLoss, TargetLoss):
         return a, optimal_Q_sa
 
 
-    def eval_Q(self, state: np.ndarray, target=False) -> torch.Tensor:
+    def eval_Q(self, state: torch.Tensor, target=False) -> torch.Tensor:
         if target:
             return self.target_network(state)
 
@@ -228,50 +203,30 @@ class DQNAgent(NN, NaiveLoss, TargetLoss):
 
     def loss(
         self,
-        state: np.ndarray,
-        action: int,
-        reward: float,
-        next_state: np.ndarray,
-        done: bool,
+        sequences: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor] | None,
         count: int
-    ) -> torch.Tensor | None:
-        state_t = torch.tensor(state, dtype=torch.float32)
-        action_t = torch.tensor(action, dtype=torch.long)
-        reward_t = torch.tensor(reward, dtype=torch.float32)
-        next_state_t = torch.tensor(
-            next_state, dtype=torch.float32
-        )
-        done_t = torch.tensor(done, dtype=torch.bool)
+        ) -> torch.Tensor | None:
+        
+        if sequences is None:
+            return None
+
+
+        states, actions, next_states, rewards, dones = sequences
 
         # Compute Q(s,a) using the current network
-        Q_s = self.eval_Q(
-            state_t.numpy()
-        )  # eval_Q expects numpy array
-        Q_sa = Q_s[int(action_t.item())]
+        Q_s = self.eval_Q(states)  # eval_Q expects numpy array
+        Q_sa = Q_s.gather(1, actions.unsqueeze(1)).squeeze(1)
 
         with torch.no_grad():  # target should be a fixed value, not part of the graph
-            Q_s_next = self.eval_Q(next_state_t.numpy(), target=self.target) # If self.target, use target network to evaluate optimal_Q_sa_next
-            optimal_Q_sa_next = (
-                torch.max(Q_s_next)
-                if not done_t.item()
-                else torch.tensor(0.0, dtype=torch.float32)
-            )
+            Q_next = self.eval_Q(next_states, target=self.target) # Shape: (200, 2)
+            max_Q_next = torch.max(Q_next, dim=1)[0]
 
-        if self.target: # Use target loss, which tracks if the target network should be updated
-            l, update = self.loss_target(Q_sa=Q_sa,
-                                        optimal_Q_sa_next=optimal_Q_sa_next,
-                                        r=reward_t,
-                                        gamma=self.gamma,
-                                        count=count)
-            if update:
-                self.target_network = copy.deepcopy(self.network)
+            targets = rewards + self.gamma * max_Q_next * (~dones).float()
 
-        else:
-            l = self.loss_naive(
-                Q_sa=Q_sa,
-                optimal_Q_sa_next=optimal_Q_sa_next,
-                r=reward_t,
-                gamma=self.gamma,
-            )
+        l = torch.mean(torch.square(targets - Q_sa))
+
+        # Handle target network updates outside any loop
+        if self.target and (count % self.update_frequence == 0):
+            self.target_network = copy.deepcopy(self.network)
 
         return l
