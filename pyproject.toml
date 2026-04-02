@@ -20,3 +20,8 @@ typeCheckingMode = "basic"
 
 [tool.ruff]
 line-length = 60
+
+[dependency-groups]
+dev = [
+    "torchsummary>=1.5.1",
+]
