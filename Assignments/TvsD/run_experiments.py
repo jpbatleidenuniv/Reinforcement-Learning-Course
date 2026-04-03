@@ -111,7 +111,7 @@ CONFIGS = [
 #     ),
 ]
 
-N_REPETITIONS = 20
+N_REPETITIONS = 5
 
 
 def single_run(
