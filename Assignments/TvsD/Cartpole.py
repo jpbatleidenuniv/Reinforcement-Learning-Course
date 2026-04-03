@@ -76,16 +76,16 @@ def cartpole(
 
             done = terminated or truncated
 
-            sequences = buffer.get_sequence(state=obs_prev, 
-                                            next_state=obs,
-                                            action=action,
-                                            reward=float(reward),
-                                            done=done)
-            
+            sequences = buffer.get_sequence(
+                state=obs_prev,
+                next_state=obs,
+                action=action,
+                reward=float(reward),
+                done=done,
+            )
 
             l = agent.loss(
-                sequences=sequences,
-                count=total_steps_taken
+                sequences=sequences, count=total_steps_taken
             )
 
             episode_over = done
@@ -100,9 +100,11 @@ def cartpole(
                     # Accumulate loss for mini-batch updates
                     batch_loss.append(l)
                     batch_counter += 1
-                    
 
-                    if batch_counter >= batch_size or episode_over:
+                    if (
+                        batch_counter >= batch_size
+                        or episode_over
+                    ):
                         agent.optimizer.zero_grad()
                         sum(batch_loss).backward()
                         agent.optimizer.step()
@@ -111,6 +113,9 @@ def cartpole(
                 
                 step_count += 1
                 episode_loss += l.item()
+
+                step_count += 1
+                total_loss += l.item()
 
             Q_s = Q_s_next.detach()
             episode_reward += float(reward)

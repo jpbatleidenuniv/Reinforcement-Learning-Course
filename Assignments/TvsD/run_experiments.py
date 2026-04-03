@@ -45,7 +45,6 @@ class RunConfig:
     reduce_factor: float = 0.5
     patience: int = 1000
 
-    # Environment
     maximum_steps: int = 10**6
     n_eval_timesteps: int = 5000
     n_eval_episodes: int = 100
