@@ -62,9 +62,14 @@ CONFIGS = [
     RunConfig("Softmax_t2.0", policy="softmax", temperature=2.0),
 
     # Architectures
-    RunConfig("Arch_1x64",  layers=1, width=64),
-    RunConfig("Arch_2x64",  layers=2, width=128),
-    RunConfig("Arch_3x128", layers=3, width=256),
+    RunConfig("Width_64",  layers=3, width=64),
+    RunConfig("Width_128",  layers=3, width=128),
+    RunConfig("Width_256", layers=3, width=256),
+
+    RunConfig("Layers_1",  layers=1, width=128),
+    RunConfig("Layers_2",  layers=2, width=128),
+    RunConfig("Layers_3", layers=3, width=128),
+    RunConfig("Layers_6", layers=6, width=128),
 
     # Learning rates
     RunConfig("LR_1e-3",  lr=1e-3),
