@@ -127,7 +127,7 @@ class DQNAgent(NN):
         super().__init__(
             hidden_layers=hidden_layers,
             width=width,
-            learning_rate=learning_rate
+            learning_rate=learning_rate,
             device=device
         )
 
