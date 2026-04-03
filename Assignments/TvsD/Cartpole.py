@@ -99,8 +99,6 @@ def cartpole(
                     # Accumulate loss for mini-batch updates
                     batch_loss.append(l)
                     batch_counter += 1
-                    step_count += 1
-                    total_loss += l.item()
 
                     if (
                         batch_counter >= batch_size
@@ -111,6 +109,9 @@ def cartpole(
                         agent.optimizer.step()
                         batch_loss = []
                         batch_counter = 0
+
+                step_count += 1
+                total_loss += l.item()
 
             Q_s = Q_s_next.detach()
             episode_reward += float(reward)
@@ -132,15 +133,16 @@ def cartpole(
             scheduler.step(metrics=0.0)
 
         if episode_num % 100 == 0:
-            time_1 = perf_counter()
-            pbar.set_postfix(
-                {
-                    "Reward": f"{episode_reward:.1f}",
-                    "Loss": f"{total_loss / step_count:.4f}",
-                    "lr": scheduler.get_last_lr()[0],
-                }
-            )
-            elapsed = time_1 - time_0
+            if step_count > 0:
+                time_1 = perf_counter()
+                pbar.set_postfix(
+                    {
+                        "Reward": f"{episode_reward:.1f}",
+                        "Loss": f"{total_loss / step_count:.4f}",
+                        "lr": scheduler.get_last_lr()[0],
+                    }
+                )
+                elapsed = time_1 - time_0
 
     env.close()
     return eval_returns, eval_timesteps
