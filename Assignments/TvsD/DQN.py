@@ -139,8 +139,8 @@ class DQNAgent(NN):
         self.gamma = gamma
         self.target = target
 
-        losses = {"MSE": nn.MSELoss, "MAE": nn.L1Loss}
-        assert self.loss_function in losses, "Loss function can be MSE or MAE"
+        losses = {"MSE": nn.MSELoss(), "MAE": nn.L1Loss()}
+        assert loss_function in losses, "Loss function can be MSE or MAE"
         self.loss_function = losses[loss_function]
 
 

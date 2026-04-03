@@ -43,7 +43,7 @@ class RunConfig:
 
     # Lr scheduler
     reduce_factor: float = 0.5
-    patience: int = 200
+    patience: int = 1000
 
     # Environment
     maximum_steps: int = 10**6
