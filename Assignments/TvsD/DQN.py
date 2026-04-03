@@ -13,7 +13,8 @@ class ExperienceReplay():
                  buffer: bool = False,
                  buffer_size: int = 100000,
                  min_buffer_size: int = 1000,
-                 batch_size: int = 200) -> None:
+                 batch_size: int = 200,
+                 device: str = "cpu") -> None:
         
         self.use_buffer = buffer
         self.max_buffer_size = buffer_size
@@ -22,6 +23,7 @@ class ExperienceReplay():
         self.total_steps_seen = 0
         self.len_buffer = 0
         self.batch_size = batch_size
+        self.device = device
 
     def get_sequence(self, 
                      state: np.ndarray, 
@@ -35,11 +37,11 @@ class ExperienceReplay():
 
         if not self.use_buffer:
             return (
-                torch.tensor(np.array([state]), dtype=torch.float32),
-                torch.tensor([action], dtype=torch.long),
-                torch.tensor(np.array([next_state]), dtype=torch.float32),
-                torch.tensor([reward], dtype=torch.float32),
-                torch.tensor([done], dtype=torch.bool)
+                torch.tensor(np.array([state]), dtype=torch.float32).to(device=self.device),
+                torch.tensor([action], dtype=torch.long).to(device=self.device),
+                torch.tensor(np.array([next_state]), dtype=torch.float32).to(device=self.device),
+                torch.tensor([reward], dtype=torch.float32).to(device=self.device),
+                torch.tensor([done], dtype=torch.bool).to(device=self.device)
             )
 
         # Use modulo to wrap the index back to 0 when it hits max_buffer_size, this will always replace the oldest transition tuple in the buffer
@@ -60,11 +62,11 @@ class ExperienceReplay():
         # Makes tuples of lists 
         states, actions, next_states, rewards, dones = zip(*batch)
 
-        tensor_batch = (torch.tensor(np.array(states), dtype=torch.float32),
-                        torch.tensor(actions, dtype=torch.long),
-                        torch.tensor(np.array(next_states), dtype=torch.float32),
-                        torch.tensor(np.array(rewards), dtype=torch.float32),
-                        torch.tensor(dones, dtype=torch.bool))
+        tensor_batch = (torch.tensor(np.array(states), dtype=torch.float32).to(device=self.device),
+                        torch.tensor(actions, dtype=torch.long).to(device=self.device),
+                        torch.tensor(np.array(next_states), dtype=torch.float32).to(device=self.device),
+                        torch.tensor(np.array(rewards), dtype=torch.float32).to(device=self.device),
+                        torch.tensor(dones, dtype=torch.bool).to(device=self.device))
         
         return tensor_batch
 
@@ -76,6 +78,7 @@ class NN(nn.Module):
         hidden_layers: int,
         width: int,
         learning_rate: float = 0.01,
+        device: str = "cpu",
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -84,6 +87,7 @@ class NN(nn.Module):
         self.w = width
         self.lr = learning_rate
         self.network = self._build_network()
+        self.device = device
 
         self.optimizer = optim.AdamW(
             self.network.parameters(), lr=self.lr
@@ -101,7 +105,7 @@ class NN(nn.Module):
 
     def forward(self, x: np.ndarray | torch.Tensor) -> torch.Tensor:
         if isinstance(x, np.ndarray):
-            x = torch.tensor(x, dtype=torch.float32)
+            x = torch.tensor(x, dtype=torch.float32).to(next(self.parameters()).device)
         return self.network(x)
 
 
@@ -117,12 +121,14 @@ class DQNAgent(NN):
         gamma: float = 0.99,
         target: bool = False,
         update_frequence: int = 100,
+        device: str = "cpu"
     ) -> None:
         
         super().__init__(
             hidden_layers=hidden_layers,
             width=width,
             learning_rate=learning_rate
+            device=device
         )
 
         self.temp = temp

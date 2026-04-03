@@ -1,6 +1,7 @@
 import os
 import gymnasium as gym
 import numpy as np
+import torch
 from time import perf_counter
 import sys
 
@@ -59,10 +60,10 @@ def cartpole(
         episode_reward = 0
         step_count = 0
         episode_over = False
-        total_loss = 0
         obs_prev = obs
         batch_loss = []
         batch_counter = 0
+        episode_loss = 0
 
         while not episode_over:
             # Replace this with your trained agent's policy
@@ -99,8 +100,7 @@ def cartpole(
                     # Accumulate loss for mini-batch updates
                     batch_loss.append(l)
                     batch_counter += 1
-                    step_count += 1
-                    total_loss += l.item()
+                    
 
                     if batch_counter >= batch_size or episode_over:
                         agent.optimizer.zero_grad()
@@ -108,6 +108,9 @@ def cartpole(
                         agent.optimizer.step()
                         batch_loss = []
                         batch_counter = 0
+                
+                step_count += 1
+                episode_loss += l.item()
 
             Q_s = Q_s_next.detach()
             episode_reward += float(reward)
@@ -124,16 +127,17 @@ def cartpole(
                 next_eval_step += n_eval_timesteps
 
         if step_count > 0:
-            scheduler.step(metrics=total_loss / step_count)
+            scheduler.step(metrics= episode_loss / step_count)
         else:
             scheduler.step(metrics=0.0)
 
-        if episode_num % 100 == 0:
+        if episode_num % 100 == 0 and step_count > 0:
             time_1 = perf_counter()
+
             pbar.set_postfix(
                 {
                     "Reward": f"{episode_reward:.1f}",
-                    "Loss": f"{total_loss / step_count:.4f}",
+                    "Loss": f"{episode_loss / step_count:.4f}",
                     "lr": scheduler.get_last_lr()[0],
                 }
             )
@@ -146,6 +150,8 @@ def cartpole(
 if __name__ == "__main__":
     import sys
     from exploration import EXPLORATIONS
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     if len(sys.argv) < 2:
         print("Usage: python Cartpole.py <exp_id>")
@@ -178,7 +184,8 @@ if __name__ == "__main__":
         buffer=exp.buffer,
         buffer_size=exp.buffer_size,
         min_buffer_size=exp.min_buffer_size,
-        batch_size=exp.batch_size
+        batch_size=exp.batch_size,
+        device=device
     )
 
     agent = DQNAgent(
@@ -188,7 +195,8 @@ if __name__ == "__main__":
         policy=exp.policy,
         epsilon=exp.epsilon,
         temp=exp.temperature,
-        target=exp.target_network
+        target=exp.target_network,
+        device=device
     )
 
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
@@ -213,7 +221,7 @@ if __name__ == "__main__":
         batch_size=exp.batch_size,
         n_eval_timesteps=exp.n_eval_timesteps,
         n_eval_episodes=exp.n_eval_episodes,
-        buffer=experience_replay
+        buffer=experience_replay,
     )
 
     eval_env.close()
@@ -232,13 +240,13 @@ if __name__ == "__main__":
     )
 
     # ------------------ Save results ------------------
-    os.makedirs("results", exist_ok=True)
+    os.makedirs("results_test", exist_ok=True)
     np.save(
-        f"results/{exp.name}_eval_returns.npy",
+        f"results_test/{exp.name}_eval_returns.npy",
         np.array(eval_returns),
     )
     np.save(
-        f"results/{exp.name}_eval_timesteps.npy",
+        f"results_test/{exp.name}_eval_timesteps.npy",
         np.array(eval_timesteps),
     )
     print(f"Results saved to results/{exp.name}_*.npy")
