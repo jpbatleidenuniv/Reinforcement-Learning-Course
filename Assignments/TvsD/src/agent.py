@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from torch import Tensor
 from torchsummary import summary
 from numpy.typing import NDArray
+import numpy as np
 import torch.nn as nn
 import torch
 import random
@@ -9,9 +10,9 @@ import random
 
 def argmax(x) -> Tensor:
     """Argmax with random tie breaking, tensor style"""
-    max = torch.argmax(x)
-    random_index = torch.randperm(max.size(0))[0]
-    return max[random_index]
+    arg_maxes = torch.where(x == torch.max(x))[0]
+    random_index = torch.randint(0, len(arg_maxes), (1,))
+    return arg_maxes[random_index]
 
 
 def softmax(x: Tensor, temp: float):
@@ -83,23 +84,23 @@ class Agent:
         self.output_dim = output_dim
         self.features = features
 
-    def select_action(
-        self, obs: NDArray, policy, epsilon, temp
-    ):
-        # Epsilon greedy policy
+    def select_action(self, obs: NDArray):
         Q_s: Tensor = self.network(
             torch.tensor(obs, dtype=torch.float32)
         )
+        print("The network gives us", Q_s)
+        policy = self.policy
+
         if policy == "egreedy":
             if (
-                random.random() < epsilon
+                random.random() < self.epsilon
             ):  # If epsilon-greedy we choose a random action
-                return random.randrange(self.output_dim)
-            print("This is QS", Q_s)
+                return torch.randint(
+                    0, self.output_dim, (1,)
+                )
             return argmax(Q_s)
-
         elif policy == "softmax":
-            return softmax(Q_s, temp)
+            return softmax(Q_s, self.temp)
         else:
             raise ValueError(
                 f"{policy} not part of allowed policies. `egreedy` or `softmax`"
@@ -132,3 +133,16 @@ class Agent:
             + self.gamma
             * torch.max(self.network(obs_next_t))
         )
+
+
+if __name__ == "__main__":
+    agent = Agent(
+        lr=5e-4,
+        gamma=0.99,
+        policy="egreedy",
+        epsilon=0.3,
+        temp=2.0,
+    )
+
+    obs = np.random.randn(4)
+    print(agent.select_action(obs))
