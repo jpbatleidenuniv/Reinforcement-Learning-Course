@@ -167,6 +167,7 @@ if __name__ == "__main__":
 
     # ------------------ Environment ------------------
     env = gym.make("CartPole-v1", render_mode="rgb_array")
+    env.reset()
     env = RecordVideo(
         env,
         video_folder=f"cartpole-videos/{exp.name}",
@@ -178,6 +179,7 @@ if __name__ == "__main__":
     )
 
     eval_env = gym.make("CartPole-v1")
+
 
     # ------------------ Agent ------------------
     experience_replay = ExperienceReplay(

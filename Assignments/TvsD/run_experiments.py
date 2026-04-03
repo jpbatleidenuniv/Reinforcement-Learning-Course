@@ -39,6 +39,7 @@ class RunConfig:
     width: int = 128
     lr: float = 1e-4
     batch_size: int = 32
+    loss: str = "MSE" #['MSE', 'MAE']
 
     # Lr scheduler
     reduce_factor: float = 0.5
@@ -76,6 +77,10 @@ CONFIGS = [
     RunConfig("Batch_10", batch_size=10),
     RunConfig("Batch_20", batch_size=32),
     RunConfig("Batch_64", batch_size=64),
+
+    # Loss functions
+    RunConfig("loss_MSE", loss="MSE"),
+    RunConfig("loss_MAE", loss="MAE"),
 
 
     # RunConfig("Best_Combined",
@@ -155,6 +160,7 @@ def single_run(
         temp=cfg.temperature,
         target=cfg.target_network,
         update_frequence=cfg.update_target,
+        loss_function=cfg.loss
     )
 
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
