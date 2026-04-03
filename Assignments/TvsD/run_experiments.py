@@ -18,48 +18,97 @@ from dataclasses import dataclass
 @dataclass
 class RunConfig:
     name: str
+
+    # Only for buffer
     buffer: bool = False
     buffer_size: int = 100000
     min_buffer_size: int = 1000
+
+    # Only for target
     target_network: bool = False
     update_target: int = 100
-    policy: str = "softmax"
+
+    # Naive
+    policy: str = "softmax" # ['epsilon-greedy', 'softmax']
     epsilon: float = 0.1
-    temperature: float = 2.0
-    layers: int = 3
+    temperature: float = 1.0
+
+    # NN
+    layers: int = 2
     width: int = 128
-    lr: float = 5e-4
-    batch_size: int = 24
+    lr: float = 1e-3
+    batch_size: int = 32
+
+    # Lr scheduler
     reduce_factor: float = 0.5
     patience: int = 200
+
+    # Environment
     maximum_steps: int = 10**6
     n_eval_timesteps: int = 5000
     n_eval_episodes: int = 100
 
 
 CONFIGS = [
-    RunConfig("Baseline"),
-    RunConfig(
-        "TargetNetwork",
-        target_network=True,
-        update_target=100,
-    ),
-    RunConfig(
-        "Buffer",
-        buffer=True,
-        buffer_size=100000,
-        min_buffer_size=1000,
-        batch_size=64,
-    ),
-    RunConfig(
-        "Target+Buffer",
-        target_network=True,
-        update_target=100,
-        buffer=True,
-        buffer_size=100000,
-        min_buffer_size=1000,
-        batch_size=64,
-    ),
+    # Policies
+    RunConfig("EpsGreedy_e0.01", policy="epsilon-greedy", epsilon=0.01),
+    RunConfig("EpsGreedy_e0.05", policy="epsilon-greedy", epsilon=0.05),
+    RunConfig("EpsGreedy_e0.2",  policy="epsilon-greedy", epsilon=0.2),
+
+    RunConfig("Softmax_t0.5", policy="softmax", temperature=0.5),
+    RunConfig("Softmax_t1.0", policy="softmax", temperature=1.0),
+    RunConfig("Softmax_t2.0", policy="softmax", temperature=2.0),
+
+    # Architectures
+    RunConfig("Arch_1x64",  layers=1, width=64),
+    RunConfig("Arch_2x64",  layers=2, width=64),
+    RunConfig("Arch_3x128", layers=3, width=128),
+
+    # Learning rates
+    RunConfig("LR_1e-3",  lr=1e-3),
+    RunConfig("LR_5e-4",  lr=5e-4),
+    RunConfig("LR_1e-4",  lr=1e-4),
+    RunConfig("LR_1e-5",  lr=1e-5),
+
+    # Batch size
+    RunConfig("Batch_1",  batch_size=1),
+    RunConfig("Batch_10", batch_size=10),
+    RunConfig("Batch_20", batch_size=20),
+    RunConfig("Batch_64", batch_size=64),
+
+
+    # RunConfig("Best_Combined",
+    #     policy="softmax",       # <-- replace with your findings
+    #     temperature=1.0,
+    #     layers=2,
+    #     width=64,
+    #     lr=1e-3,
+    #     batch_size=32,
+    # ),
+
+    # ================================================================
+#     # STUDY 2: Stabilization techniques (use best hyperparams above)
+#     # ================================================================
+#     RunConfig("Naive",
+#         policy="softmax", temperature=1.0,  # <-- replace with best
+#         layers=2, width=64, lr=1e-3, batch_size=64,
+#     ),
+#     RunConfig("TargetNetwork",
+#         policy="softmax", temperature=1.0,
+#         layers=2, width=64, lr=1e-3, batch_size=64,
+#         target_network=True, update_target=100,
+#     ),
+#     RunConfig("ExperienceReplay",
+#         policy="softmax", temperature=1.0,
+#         layers=2, width=64, lr=1e-3, batch_size=64,
+#         buffer=True, buffer_size=100000, min_buffer_size=1000,
+#     ),
+#     RunConfig("TargetNetwork_ExperienceReplay",
+#         policy="softmax", temperature=1.0,
+#         layers=2, width=64, lr=1e-3, batch_size=64,
+#         target_network=True, update_target=100,
+#         buffer=True, buffer_size=100000, min_buffer_size=1000,
+#     ),
 ]
 
 N_REPETITIONS = 20
