@@ -2,6 +2,7 @@ import os
 import sys
 import numpy as np
 import gymnasium as gym
+import torch
 from torch import optim
 from gymnasium.wrappers import RecordEpisodeStatistics
 
@@ -30,13 +31,13 @@ class RunConfig:
 
     # Naive
     policy: str = "softmax" # ['epsilon-greedy', 'softmax']
-    epsilon: float = 0.1
+    epsilon: float = 0.05
     temperature: float = 1.0
 
     # NN
     layers: int = 2
     width: int = 128
-    lr: float = 1e-3
+    lr: float = 1e-4
     batch_size: int = 32
 
     # Lr scheduler
@@ -61,8 +62,8 @@ CONFIGS = [
 
     # Architectures
     RunConfig("Arch_1x64",  layers=1, width=64),
-    RunConfig("Arch_2x64",  layers=2, width=64),
-    RunConfig("Arch_3x128", layers=3, width=128),
+    RunConfig("Arch_2x64",  layers=2, width=128),
+    RunConfig("Arch_3x128", layers=3, width=256),
 
     # Learning rates
     RunConfig("LR_1e-3",  lr=1e-3),
@@ -73,7 +74,7 @@ CONFIGS = [
     # Batch size
     RunConfig("Batch_1",  batch_size=1),
     RunConfig("Batch_10", batch_size=10),
-    RunConfig("Batch_20", batch_size=20),
+    RunConfig("Batch_20", batch_size=32),
     RunConfig("Batch_64", batch_size=64),
 
 
@@ -119,14 +120,24 @@ def single_run(
 ) -> tuple[list[float], list[int]]:
     """This is exactly the same as the code in Cartpole.py"""
 
-    # Seed for reproducibility
     np.random.seed(seed)
+    torch.manual_seed(seed)
+    
+    # If using GPU:
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)  # for multi-GPU
+    
+    # For full determinism (can slow things down):
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
     env = gym.make("CartPole-v1")
+    env.reset(seed=seed)
     env = RecordEpisodeStatistics(
         env, buffer_length=cfg.n_eval_episodes
     )
     eval_env = gym.make("CartPole-v1")
+    eval_env.reset(seed=seed+1)
 
     experience_replay = ExperienceReplay(
         buffer=cfg.buffer,

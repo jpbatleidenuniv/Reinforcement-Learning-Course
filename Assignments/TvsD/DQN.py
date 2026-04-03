@@ -121,7 +121,8 @@ class DQNAgent(NN):
         gamma: float = 0.99,
         target: bool = False,
         update_frequence: int = 100,
-        device: str = "cpu"
+        device: str = "cpu",
+        loss_function: str = "MSE"
     ) -> None:
         
         super().__init__(
@@ -137,6 +138,11 @@ class DQNAgent(NN):
         self.update_frequence = update_frequence
         self.gamma = gamma
         self.target = target
+
+        losses = {"MSE": nn.MSELoss, "MAE": nn.L1Loss}
+        assert self.loss_function in losses, "Loss function can be MSE or MAE"
+        self.loss_function = losses[loss_function]
+
 
         if self.target:
             self.target_network = copy.deepcopy(self.network)
@@ -216,7 +222,6 @@ class DQNAgent(NN):
         if sequences is None:
             return None
 
-
         states, actions, next_states, rewards, dones = sequences
 
         # Compute Q(s,a) using the current network
@@ -229,7 +234,7 @@ class DQNAgent(NN):
 
             targets = rewards + self.gamma * max_Q_next * (~dones).float()
 
-        l = torch.mean(torch.square(targets - Q_sa))
+        l = self.loss_function(Q_sa, targets)
 
         # Handle target network updates outside any loop
         if self.target and (count % self.update_frequence == 0):
