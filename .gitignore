@@ -12,3 +12,6 @@ wheels/
 
 # Ignore video recordings 
 *.mp4
+
+# Ignore saved results
+*.npy
