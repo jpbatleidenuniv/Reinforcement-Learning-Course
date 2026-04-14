@@ -13,3 +13,6 @@ wheels/
 # Ignore video recordings 
 *.mp4
 
+# Ignore data
+*.npy
+*.csv
