@@ -1,0 +1,17 @@
+run:
+  name: base
+  max_steps_episode: 10_000
+  n_episodes: 500
+  n_eval_timesteps: 5000
+  n_eval_episodes: 100
+
+nn:
+  input_dim: 4
+  output_dim: 2
+  features: [150]
+  lr: 1.e-3
+  optim: Adam
+
+agent:
+  gamma: 0.99
+
