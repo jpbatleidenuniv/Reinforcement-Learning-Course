@@ -4,8 +4,7 @@ from tqdm import tqdm
 from pathlib import Path
 from agent import Agent
 from config import RunConfig, AgentConfig, NNConfig, Config
-import numpy as np
-import matplotlib.pyplot as plt
+from plots import plot_training
 
 
 def load_config(name: str) -> Config:
@@ -36,7 +35,7 @@ def sample_monte_carlo(env: gym.Env, agent: Agent) -> Agent:
     return agent
 
 
-def reinforce(config: Config):
+def reinforce(config: Config, env: gym.Env, save_plot: Path | None = None):
     agent = Agent(config.agent, config.nn)
     returns_history = []
     loss_history = []
@@ -51,36 +50,17 @@ def reinforce(config: Config):
                 ret=f"{info['episode_return']:.1f}",
                 steps=info["step"],
             )
-    plot_training(returns_history, loss_history)
-
-
-def plot_training(returns: list, losses: list, window: int = 20):
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6))
-
-    # Smooth with rolling average
-    def smooth(x, w):
-        return np.convolve(x, np.ones(w) / w, mode="valid")
-
-    ax1.plot(returns, alpha=0.3, color="blue", label="raw")
-    ax1.plot(smooth(returns, window), color="blue", label=f"smoothed (w={window})")
-    ax1.set_ylabel("Episode Return")
-    ax1.set_xlabel("Episode")
-    ax1.legend()
-
-    ax2.plot(losses, alpha=0.3, color="red", label="raw")
-    ax2.plot(smooth(losses, window), color="red", label=f"smoothed (w={window})")
-    ax2.set_ylabel("Loss")
-    ax2.set_xlabel("Episode")
-    ax2.legend()
-
-    plt.tight_layout()
-    plt.savefig("training.png")
-    plt.show()
+    training_info = {"Returns": returns_history, "Loss": loss_history}
+    fig = plot_training(training_info, window=20, poly=2)
+    if save_plot:
+        fig.savefig(save_plot / f"{config.run.name}_training.png")
 
 
 if __name__ == "__main__":
     name = "base"
+    save_path = Path("results/")
+    save_path.mkdir(exist_ok=True)
     cfg = load_config(name)
     env = gym.make("CartPole-v1")
 
-    reinforce(config=cfg)
+    reinforce(config=cfg, env=env, save_plot=save_path)
