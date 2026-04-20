@@ -1,6 +1,7 @@
 import gymnasium as gym
 import yaml
 import torch
+import numpy as np
 from tqdm import tqdm
 from pathlib import Path
 from agent import PolicyAgent, ValueAgent
@@ -52,26 +53,41 @@ def actor_critic(config: Config, env: gym.Env, save_plot: Path | None = None):
     policy_agent = PolicyAgent(config.agent, config.nn)
     value_agent = ValueAgent(config.agent, config.nn)
 
-    returns_history =  []
-    loss_history = {"Policy": [],
-                    "Value": []}
+    returns_history = []
+    loss_history = {"Policy": [], "Value": []}
     
-    with tqdm(range(config.run.n_episodes)) as pbar:
-        for episode in pbar:
+    total_steps = 0
+    max_steps = 10**6
+    episode = 0
+
+    with tqdm(total=max_steps, unit="steps") as pbar:
+        while total_steps < max_steps:
             policy_agent, value_agent = sample_monte_carlo(env=env, policy_agent=policy_agent, value_agent=value_agent)
             G_t = value_agent.G_t
-            policy_info = policy_agent.update(objectives=G_t)  # Contains loss, step, rewards
+            policy_info = policy_agent.update(objectives=G_t)
             value_info = value_agent.update()
+
+            episode_steps = policy_info["step"]
+            total_steps += episode_steps
+            episode += 1
 
             returns_history.append(policy_info["episode_return"])
             loss_history["Policy"].append(policy_info["loss"])
             loss_history["Value"].append(value_info["loss"])
 
+            mean_return = np.mean(returns_history[-100:])
+
             pbar.set_postfix(
                 policy_loss=f"{policy_info['loss']:.3f}",
                 value_loss=f"{value_info['loss']:.3f}",
-                episode_ret=f"{policy_info['episode_return']:.1f}"
+                episode=episode,
+                mean_return=mean_return,
             )
+            pbar.update(episode_steps)
+
+            if mean_return >= 475:
+                print(f"Solved at episode {episode}")
+                break
 
     training_info = {"Returns": returns_history, "Policy Loss": loss_history["Policy"], "Value_Loss": loss_history["Value"]}
     fig = plot_training(training_info, window=20, poly=2)

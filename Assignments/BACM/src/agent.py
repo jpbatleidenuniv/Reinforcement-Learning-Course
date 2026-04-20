@@ -71,7 +71,6 @@ class PolicyAgent:
             nn_cfg.output_dim,
             nn_cfg.features,
         )
-        self.beta = 0.01
         self.optimizer = self._build_optimizer(nn_cfg.optim)
         # Define arrays of rollout monte carlo
         self.log_probs: list[Tensor] = []
@@ -126,9 +125,7 @@ class PolicyAgent:
         objectives = (objectives - objectives.mean()) / (objectives.std() + 1e-8)
         assert T == len(objectives), f"T = {T}, len(G_T) = {len(objectives)}"
         log_probs = torch.stack(self.log_probs)
-        probs = torch.exp(log_probs)
-        entropy = -(probs*log_probs + (1-probs)*torch.log(1-probs)).sum()
-        loss = -1 * (log_probs * objectives).sum() - self.beta * entropy
+        loss = -1 * (log_probs * objectives).sum()
 
         loss.backward()
         self.optimizer.step()
