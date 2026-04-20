@@ -9,6 +9,8 @@ dependencies = [
     "gymnasium>=1.2.3",
     "matplotlib>=3.10.8",
     "pyaml>=26.2.1",
+    "pyyaml>=6.0.3",
+    "scipy>=1.17.1",
     "torch>=2.11.0",
     "tqdm>=4.67.3",
 ]

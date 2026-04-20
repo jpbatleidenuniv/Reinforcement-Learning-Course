@@ -2,7 +2,7 @@ import gymnasium as gym
 import yaml
 from tqdm import tqdm
 from pathlib import Path
-from agent import Agent
+from agent import PolicyAgent
 from config import RunConfig, AgentConfig, NNConfig, Config
 from plots import plot_training
 
@@ -19,13 +19,13 @@ def load_config(name: str) -> Config:
     return Config(run=run_cfg, nn=nn_cfg, agent=agent_cfg)
 
 
-def sample_monte_carlo(env: gym.Env, agent: Agent) -> Agent:
+def sample_monte_carlo(env: gym.Env, agent: PolicyAgent) -> PolicyAgent:
     obs, _ = env.reset()
     truncated, terminated = False, False
 
     while not (truncated or terminated):
         # We let the agent explore
-        action, pred = agent.select_action(obs)
+        action, pred, _ = agent.select_action(obs)
         (obs, r, terminated, truncated, _) = env.step(action)
 
         # For each t we save pi_at_st and r_t
@@ -36,7 +36,7 @@ def sample_monte_carlo(env: gym.Env, agent: Agent) -> Agent:
 
 
 def reinforce(config: Config, env: gym.Env, save_plot: Path | None = None):
-    agent = Agent(config.agent, config.nn)
+    agent = PolicyAgent(config.agent, config.nn)
     returns_history = []
     loss_history = []
     with tqdm(range(config.run.n_episodes)) as pbar:

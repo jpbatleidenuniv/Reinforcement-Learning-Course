@@ -19,12 +19,14 @@ class NNConfig:
     features: Sequence[int]
     lr: float
     optim: str
+    loss: str = "MSE"
 
 
 @dataclass(frozen=True)
 class AgentConfig:
     nn_cfg: NNConfig
     gamma: float = 0.99
+    n_steps: int = 20
 
 
 @dataclass(frozen=True)
