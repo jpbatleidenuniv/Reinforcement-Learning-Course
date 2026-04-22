@@ -139,7 +139,7 @@ class PolicyAgent:
         return info
     
 class ValueAgent:
-    def __init__(self, agent_cfg: AgentConfig, nn_cfg: NNConfig) -> None:
+    def __init__(self, agent_cfg: AgentConfig, nn_cfg: NNConfig, advantage=False) -> None:
         self.agent_cfg = agent_cfg
         self.nn_cfg = nn_cfg
         self.value = ValueNetwork(
@@ -147,6 +147,7 @@ class ValueAgent:
             nn_cfg.output_dim,
             nn_cfg.features,
         )
+        
         self.optimizer = self._build_optimizer(nn_cfg.optim)
         self.loss = self._loss(nn_cfg.loss)
         self.n_steps = agent_cfg.n_steps
@@ -155,6 +156,8 @@ class ValueAgent:
         self.V_s: list[Tensor] = []
         self.rewards: list[float] = []
         self._g_t: list[Tensor] = []
+
+        self.advantage = advantage
 
 
     def _build_optimizer(self, optimizer: str):
@@ -176,6 +179,10 @@ class ValueAgent:
             raise ValueError(f"Unknown loss function: {loss}")
 
         return registry[loss]
+    
+    def MSELoss(self, target, pred):
+        l = torch.mean(torch.abs(torch.square(target - pred) - 1))
+        return l
 
     def values(self, obs: Tensor) -> Tensor:
 
@@ -203,13 +210,22 @@ class ValueAgent:
                 discounted_r = gammas[:-1] * rewards
                 discounted_v = gammas[-1] * self.V_s[k+self.n_steps-1]
                 g = torch.sum(discounted_r) + discounted_v
-                g_t.append(g.detach().clone())
+                if self.advantage:
+                    a = g - self.V_s[k].detach()
+                    g_t.append(a.detach())
+                else:
+                    g_t.append(g.detach())
 
                 
             else: # N-step update will go out of bounds. 
-                rewards = torch.tensor(self.rewards[k-T:], dtype=torch.float32)
+                rewards = torch.tensor(self.rewards[k:], dtype=torch.float32)
                 discounted_r = gammas[:len(rewards)] * rewards
-                g_t.append(torch.sum(discounted_r, dtype=torch.float32).detach())
+                g = torch.sum(discounted_r, dtype=torch.float32).detach()
+                if self.advantage:
+                    a = g - self.V_s[k].detach()
+                    g_t.append(a.detach())
+                else:
+                    g_t.append(g)
 
 
         self._g_t = g_t
@@ -219,10 +235,10 @@ class ValueAgent:
         
 
         target = torch.stack(self._g_t).detach()
-        target = (target - target.mean())/(target.std() + 1e-8)
+        target = (target - target.mean())/(target.std() + 1e-8) 
         pred = torch.stack(self.V_s)
 
-        l = self.loss(pred, target)    
+        l = self.MSELoss(target=target, pred=pred)    
         self.optimizer.zero_grad()   
         l.backward()
         self.optimizer.step()

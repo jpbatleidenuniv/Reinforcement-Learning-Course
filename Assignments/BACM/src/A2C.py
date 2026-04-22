@@ -48,10 +48,10 @@ def sample_monte_carlo(env: gym.Env, policy_agent: PolicyAgent, value_agent: Val
     return policy_agent, value_agent
 
 
-def AC(config: Config, env: gym.Env, save_plot: Path | None = None):
+def A2C(config: Config, env: gym.Env, save_plot: Path | None = None):
 
     policy_agent = PolicyAgent(config.agent, config.nn)
-    value_agent = ValueAgent(config.agent, config.nn)
+    value_agent = ValueAgent(config.agent, config.nn, advantage=True)
 
     returns_history = []
     loss_history = {"Policy": [], "Value": []}
@@ -97,10 +97,10 @@ def AC(config: Config, env: gym.Env, save_plot: Path | None = None):
 
 
 if __name__ == "__main__":
-    name = "AC"
+    name = "A2C"
     save_path = Path("results/")
     save_path.mkdir(exist_ok=True)
     cfg = load_config(name)
     env = gym.make("CartPole-v1")
 
-    AC(config=cfg, env=env, save_plot=save_path)
+    A2C(config=cfg, env=env, save_plot=save_path)
