@@ -1,5 +1,5 @@
 run:
-  name: a2c
+  name: ac
   max_steps_episode: 10000
   n_episodes: 500
   n_eval_timesteps: 5000

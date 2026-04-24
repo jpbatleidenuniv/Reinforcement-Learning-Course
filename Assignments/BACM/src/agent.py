@@ -33,34 +33,32 @@ class PINetwork(nn.Module):
         for layer in self.body:
             x = layer(x)
         return self.output_layer(x)
-    
+
+
 class ValueNetwork(nn.Module):
     def __init__(
-            self, 
-            input_dim: int,
-            output_dim: int,
-            features: Sequence[int],
+        self,
+        input_dim: int,
+        features: Sequence[int],
     ):
         super().__init__()
         self.input_layer = nn.Sequential(nn.Linear(input_dim, features[0]), nn.ReLU())
+
         self.body = nn.ModuleList(
             [
-                nn.Sequential(
-                    nn.Linear(features[i], features[i + 1]),
-                    nn.ReLU()
-                )
+                nn.Sequential(nn.Linear(features[i], features[i + 1]), nn.ReLU())
                 for i in range(len(features) - 1)
             ]
         )
-        self.output_layer = nn.Sequential(
-            nn.Linear(features[-1], output_dim)
-        )
+
+        self.output_layer = nn.Linear(features[-1], 1)
 
     def forward(self, x: Tensor) -> Tensor:
         x = self.input_layer(x)
         for layer in self.body:
             x = layer(x)
-        return self.output_layer(x)
+        return self.output_layer(x).squeeze(-1)
+
 
 class PolicyAgent:
     def __init__(self, agent_cfg: AgentConfig, nn_cfg: NNConfig) -> None:
@@ -80,7 +78,9 @@ class PolicyAgent:
         # First we make predictions fro policy at state 'obs'
         pi_s: Tensor = self.policy(
             torch.tensor(obs, dtype=torch.float32).unsqueeze(0)
-        ).squeeze(0)  # Softmaxed dist of 2 possible actions
+        ).squeeze(
+            0
+        )  # Softmaxed dist of 2 possible actions
         dist = torch.distributions.Categorical(pi_s)
         action = dist.sample()
         log_prob = dist.log_prob(action)
@@ -100,7 +100,7 @@ class PolicyAgent:
     def _returns(self):
         """Tensor of G_1 ... G_T"""
         T = len(self.rewards)
-        rewards = torch.tensor(self.rewards)
+        rewards = torch.tensor(self.rewards, dtype=torch.float32)
         gammas = torch.pow(
             torch.tensor(self.agent_cfg.gamma, dtype=torch.float32),
             torch.arange(T, dtype=torch.float32),
@@ -117,12 +117,15 @@ class PolicyAgent:
 
         if objectives is None:
             objectives = self._returns  # T targets, this is G_t
-        
+
         else:
-            assert len(objectives) == T, f"The length of G_t is not the same as the episode length. This is in the 'update' method in PolicyAgent and G_t has a shape of {objectives.shape}"
+            assert (
+                len(objectives) == T
+            ), f"The length of G_t is not the same as the episode length. This is in the 'update' method in PolicyAgent and G_t has a shape of {objectives.shape}"
             objectives = objectives
 
-        objectives = (objectives - objectives.mean()) / (objectives.std() + 1e-8)
+        # we do not want standardization
+        # objectives = (objectives - objectives.mean()) / (objectives.std() + 1e-8)
         assert T == len(objectives), f"T = {T}, len(G_T) = {len(objectives)}"
         log_probs = torch.stack(self.log_probs)
         loss = -1 * (log_probs * objectives).sum()
@@ -137,28 +140,28 @@ class PolicyAgent:
         self.rewards.clear()
 
         return info
-    
+
+
 class ValueAgent:
-    def __init__(self, agent_cfg: AgentConfig, nn_cfg: NNConfig, advantage=False) -> None:
+    def __init__(
+        self, agent_cfg: AgentConfig, nn_cfg: NNConfig, advantage=False
+    ) -> None:
         self.agent_cfg = agent_cfg
         self.nn_cfg = nn_cfg
+
         self.value = ValueNetwork(
             nn_cfg.input_dim,
-            nn_cfg.output_dim,
             nn_cfg.features,
         )
-        
-        self.optimizer = self._build_optimizer(nn_cfg.optim)
-        self.loss = self._loss(nn_cfg.loss)
-        self.n_steps = agent_cfg.n_steps
 
-        # Define arrays of rollout monte carlo
+        self.optimizer = self._build_optimizer(nn_cfg.optim)
+        self.loss = nn.MSELoss()
+        self.n_steps = agent_cfg.n_steps
+        self.advantage = advantage
+
         self.V_s: list[Tensor] = []
         self.rewards: list[float] = []
         self._g_t: list[Tensor] = []
-
-        self.advantage = advantage
-
 
     def _build_optimizer(self, optimizer: str):
         registry = {
@@ -169,88 +172,62 @@ class ValueAgent:
         if optimizer not in registry:
             raise ValueError(f"Unknown optimizer: {optimizer}")
         return registry[optimizer]
-    
-    def _loss(self, loss: str):
-        registry = {
-            "MSE": torch.nn.MSELoss(),
-            "Huber": torch.nn.HuberLoss(reduction='mean', delta=self.agent_cfg.n_steps)
-        }
-        if loss not in registry:
-            raise ValueError(f"Unknown loss function: {loss}")
 
-        return registry[loss]
-    
-    def MSELoss(self, target, pred):
-        l = torch.mean(torch.abs(torch.square(target - pred) - 1))
-        return l
+    def values(self, obs: NDArray) -> Tensor:
+        V_s = self.value(torch.tensor(obs, dtype=torch.float32).unsqueeze(0)).squeeze(0)
 
-    def values(self, obs: Tensor) -> Tensor:
+        return V_s
 
-        Q_s = self.value.forward(
-                                torch.tensor(obs, dtype=torch.float32).unsqueeze(0)
-                                ).squeeze(0)
-        
-        return Q_s
-    
     @property
-    def G_t(self): 
-
+    def G_t(self):
         T = len(self.rewards)
-        gammas = torch.pow(
-            torch.tensor(self.agent_cfg.gamma, dtype=torch.float32),
-            torch.arange(self.n_steps, dtype=torch.float32),
-        )
         g_t: list[Tensor] = []
 
-        assert len(self.V_s) == T, f"V_s has length {len(self.V_s)}, while T has length {T}"
+        assert (
+            len(self.V_s) == T
+        ), f"V_s has length {len(self.V_s)}, while rewards has length {T}"
 
         for k in range(T):
+            G = torch.tensor(0.0, dtype=torch.float32)
+
+            max_n = min(self.n_steps, T - k)
+
+            for i in range(max_n):
+                G = G + (self.agent_cfg.gamma**i) * self.rewards[k + i]
+
             if k + self.n_steps < T:
-                rewards = torch.tensor(self.rewards[k: k+self.n_steps-1], dtype=torch.float32)
-                discounted_r = gammas[:-1] * rewards
-                discounted_v = gammas[-1] * self.V_s[k+self.n_steps-1]
-                g = torch.sum(discounted_r) + discounted_v
-                if self.advantage:
-                    a = g - self.V_s[k].detach()
-                    g_t.append(a.detach())
-                else:
-                    g_t.append(g.detach())
+                G = (
+                    G
+                    + (self.agent_cfg.gamma**self.n_steps)
+                    * self.V_s[k + self.n_steps].detach()
+                )
 
-                
-            else: # N-step update will go out of bounds. 
-                rewards = torch.tensor(self.rewards[k:], dtype=torch.float32)
-                discounted_r = gammas[:len(rewards)] * rewards
-                g = torch.sum(discounted_r, dtype=torch.float32).detach()
-                if self.advantage:
-                    a = g - self.V_s[k].detach()
-                    g_t.append(a.detach())
-                else:
-                    g_t.append(g)
-
+            g_t.append(G.detach())
 
         self._g_t = g_t
-        return torch.stack(g_t)
+
+        targets = torch.stack(g_t)
+
+        if self.advantage:
+            values = torch.stack(self.V_s).detach()
+            return targets - values
+
+        return targets
 
     def update(self):
-        
-
         target = torch.stack(self._g_t).detach()
-        target = (target - target.mean())/(target.std() + 1e-8) 
         pred = torch.stack(self.V_s)
 
-        l = self.MSELoss(target=target, pred=pred)    
-        self.optimizer.zero_grad()   
-        l.backward()
+        loss = self.loss(pred, target)
+
+        self.optimizer.zero_grad()
+        loss.backward()
         self.optimizer.step()
 
-        info = {"loss": l.detach().item()}
+        info = {"loss": loss.detach().item()}
 
-        # We wipe the episode information for the next episode
-        self.V_s = []
-        self.rewards = []
-        self._g_t = []
+        self.V_s.clear()
+        self.rewards.clear()
+        self._g_t.clear()
 
         return info
-
-
-
