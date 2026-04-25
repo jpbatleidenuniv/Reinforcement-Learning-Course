@@ -18,7 +18,8 @@ class NNConfig:
     input_dim: int
     output_dim: int
     features: Sequence[int]
-    lr: float
+    policy_lr: float
+    value_lr: float
     optim: str
     loss: str = "MSE"
 

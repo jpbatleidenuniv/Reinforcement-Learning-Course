@@ -10,7 +10,8 @@ nn:
   input_dim: 4
   output_dim: 2
   features: [256, 256]
-  lr: 0.001
+  value_lr: 0.0001
+  policy_lr: 0.00005
   optim: AdamW
 
 agent:

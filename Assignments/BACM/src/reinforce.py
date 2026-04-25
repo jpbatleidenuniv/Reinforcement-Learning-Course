@@ -1,5 +1,6 @@
 import gymnasium as gym
 import yaml
+import numpy as np
 from tqdm import tqdm
 from pathlib import Path
 from agent import PolicyAgent
@@ -35,14 +36,56 @@ def sample_monte_carlo(env: gym.Env, agent: PolicyAgent, seed: int) -> PolicyAge
     return agent
 
 
-def reinforce(config: Config, env: gym.Env, save_plot: Path | None = None, plot: bool = True, iteration: int | None = None):
+def evaluate(
+    env: gym.Env,
+    policy_agent: PolicyAgent,
+    n_episodes: int = 10,
+    seed_offset: int = 0,
+) -> dict:
+    """
+    Run `n_episodes` evaluation episodes using a greedy policy.
+    The agent is not updated and no gradients are tracked.
+
+    Returns a dict with per-episode returns and their mean/std.
+    """
+    policy_agent.policy.eval()
+    ep_returns = []
+
+    for ep in range(n_episodes):
+        obs, _ = env.reset(seed=seed_offset + ep)
+        truncated, terminated = False, False
+        ep_reward = 0.0
+
+        while not (truncated or terminated):
+            action = policy_agent.select_greedy_action(obs)
+            obs, r, terminated, truncated, _ = env.step(action)
+            ep_reward += float(r)
+
+        ep_returns.append(ep_reward)
+
+
+    policy_agent.policy.train()
+
+    return {
+        "returns": ep_returns,
+        "mean": float(np.mean(ep_returns)),
+        "std": float(np.std(ep_returns)),
+    }
+
+
+def reinforce(config: Config, env: gym.Env, save_plot: Path | None = None, plot: bool = True, iteration: int | None = None, eval_interval: int = 500, n_eval_episodes: int = 10):
+
     agent = PolicyAgent(config.agent, config.nn)
     returns_history = []
     loss_history = []
+    eval_history: list[dict] = []   # {"step": int, "mean": float, "std": float}
+
 
     total_steps = 0
     max_steps = int(config.run.n_steps)
     episode = 0
+    next_eval_at = eval_interval
+
     with tqdm(total=max_steps, unit="steps") as pbar:
         while total_steps < max_steps:
 
@@ -54,6 +97,28 @@ def reinforce(config: Config, env: gym.Env, save_plot: Path | None = None, plot:
             agent = sample_monte_carlo(env=env, agent=agent, seed=seed) # Sample trajectory and store it in agent
             info = agent.update()  # Contains loss, step, rewards
 
+            episode_steps = info["step"]
+            total_steps += episode_steps
+            episode += 1
+
+            #  Evaluation round
+            if total_steps >= next_eval_at:
+                eval_info = evaluate(
+                    env=env,
+                    policy_agent=agent,
+                    n_episodes=n_eval_episodes,
+                    seed_offset=total_steps,   # reproducible but distinct from training seeds
+                )
+                eval_info["step"] = total_steps
+                eval_history.append(eval_info)
+
+                tqdm.write(
+                    f"[Eval @ {total_steps:,} steps]  "
+                    f"mean return = {eval_info['mean']:.1f} ± {eval_info['std']:.1f}  "
+                    f"(over {n_eval_episodes} greedy episodes)"
+                )
+                next_eval_at += eval_interval
+
             returns_history.append(info["episode_return"])
             loss_history.append(info["loss"])
             pbar.set_postfix(
@@ -61,10 +126,9 @@ def reinforce(config: Config, env: gym.Env, save_plot: Path | None = None, plot:
                 ret=f"{info['episode_return']:.1f}",
                 steps=info["step"],
             )
+            pbar.update(episode_steps)
 
-            episode_steps = info["step"]
-            total_steps += episode_steps
-            episode += 1
+
 
     training_info = {"Returns": returns_history, "Loss": loss_history}
     fig = plot_training(training_info, window=20, poly=2, plot=plot)
@@ -74,11 +138,11 @@ def reinforce(config: Config, env: gym.Env, save_plot: Path | None = None, plot:
         else:
             fig.savefig(save_plot / f"{config.run.name}_{iteration}_training.png")
 
-    return training_info
+    return eval_history
 
 
 if __name__ == "__main__":
-    name = "base"
+    name = "REINFORCE"
     save_path = Path("results/")
     save_path.mkdir(exist_ok=True)
     cfg = load_config(name)
