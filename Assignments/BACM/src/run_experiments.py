@@ -1,6 +1,8 @@
 import gymnasium as gym
 import yaml
 import pickle
+import torch
+import numpy as np
 
 from datetime import datetime
 from A2C import A2C
@@ -30,6 +32,9 @@ save_path.mkdir(exist_ok=True)
 results = {"A2C": [], "AC": [], "REINFORCE": []}
 for func, name in functions.items():
     for repetition in range(N_REPETITIONS):
+
+        torch.manual_seed(repetition)
+        np.random.seed(repetition)
         cfg = load_config(name)
         env = gym.make("CartPole-v1")
         r = func(config=cfg, env=env, save_plot=save_path, plot=False, iteration=repetition)
