@@ -19,8 +19,8 @@ def load_config(name: str) -> Config:
     return Config(run=run_cfg, nn=nn_cfg, agent=agent_cfg)
 
 
-def sample_monte_carlo(env: gym.Env, agent: PolicyAgent) -> PolicyAgent:
-    obs, _ = env.reset()
+def sample_monte_carlo(env: gym.Env, agent: PolicyAgent, seed: int) -> PolicyAgent:
+    obs, _ = env.reset(seed=seed)
     truncated, terminated = False, False
 
     while not (truncated or terminated):
@@ -35,14 +35,25 @@ def sample_monte_carlo(env: gym.Env, agent: PolicyAgent) -> PolicyAgent:
     return agent
 
 
-def reinforce(config: Config, env: gym.Env, save_plot: Path | None = None):
+def reinforce(config: Config, env: gym.Env, save_plot: Path | None = None, plot: bool = True, iteration: int | None = None):
     agent = PolicyAgent(config.agent, config.nn)
     returns_history = []
     loss_history = []
-    with tqdm(range(config.run.n_episodes)) as pbar:
-        for episode in pbar:
-            agent = sample_monte_carlo(env=env, agent=agent)
+
+    total_steps = 0
+    max_steps = int(config.run.n_steps)
+    episode = 0
+    with tqdm(total=max_steps, unit="steps") as pbar:
+        while total_steps < max_steps:
+
+            if iteration is not None:
+                seed = iteration + len(returns_history)
+            else:
+                seed = len(returns_history)
+            
+            agent = sample_monte_carlo(env=env, agent=agent, seed=seed) # Sample trajectory and store it in agent
             info = agent.update()  # Contains loss, step, rewards
+
             returns_history.append(info["episode_return"])
             loss_history.append(info["loss"])
             pbar.set_postfix(
@@ -50,10 +61,20 @@ def reinforce(config: Config, env: gym.Env, save_plot: Path | None = None):
                 ret=f"{info['episode_return']:.1f}",
                 steps=info["step"],
             )
+
+            episode_steps = info["step"]
+            total_steps += episode_steps
+            episode += 1
+
     training_info = {"Returns": returns_history, "Loss": loss_history}
-    fig = plot_training(training_info, window=20, poly=2)
+    fig = plot_training(training_info, window=20, poly=2, plot=plot)
     if save_plot:
-        fig.savefig(save_plot / f"{config.run.name}_training.png")
+        if iteration is None:
+            fig.savefig(save_plot / f"{config.run.name}_training.png")
+        else:
+            fig.savefig(save_plot / f"{config.run.name}_{iteration}_training.png")
+
+    return training_info
 
 
 if __name__ == "__main__":

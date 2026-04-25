@@ -21,8 +21,10 @@ def load_config(name: str) -> Config:
     return Config(run=run_cfg, nn=nn_cfg, agent=agent_cfg)
 
 
-def sample_monte_carlo(env: gym.Env, policy_agent: PolicyAgent, value_agent: ValueAgent) -> tuple[PolicyAgent, ValueAgent]:
-    obs, _ = env.reset()
+def sample_monte_carlo(
+    env: gym.Env, policy_agent: PolicyAgent, value_agent: ValueAgent, seed: int
+) -> tuple[PolicyAgent, ValueAgent]:
+    obs, _ = env.reset(seed=seed)
     truncated, terminated = False, False
     rewards = []
     log_probs = []
@@ -31,9 +33,9 @@ def sample_monte_carlo(env: gym.Env, policy_agent: PolicyAgent, value_agent: Val
     while not (truncated or terminated):
         # We let the agent explore
         action, pred, pi_s = policy_agent.select_action(obs)
-        Q_s = value_agent.values(obs)
-        (obs, r, terminated, truncated, _) = env.step(action)
-        V_s = torch.sum(Q_s * pi_s.detach(), dtype=torch.float32)
+        V_s = value_agent.values(obs)
+
+        obs, r, terminated, truncated, _ = env.step(action)
 
         # For each t we save pi_at_st and r_t
         rewards.append(float(r))
@@ -48,22 +50,32 @@ def sample_monte_carlo(env: gym.Env, policy_agent: PolicyAgent, value_agent: Val
     return policy_agent, value_agent
 
 
-def A2C(config: Config, env: gym.Env, save_plot: Path | None = None):
+def A2C(config: Config, env: gym.Env, save_plot: Path | None = None, plot: bool = True, iteration: int | None = None):
 
     policy_agent = PolicyAgent(config.agent, config.nn)
     value_agent = ValueAgent(config.agent, config.nn, advantage=True)
 
     returns_history = []
     loss_history = {"Policy": [], "Value": []}
-    
+
     total_steps = 0
-    max_steps = 10**6
+    max_steps = int(config.run.n_steps)
     episode = 0
 
     with tqdm(total=max_steps, unit="steps") as pbar:
         while total_steps < max_steps:
-            policy_agent, value_agent = sample_monte_carlo(env=env, policy_agent=policy_agent, value_agent=value_agent)
-            G_t = value_agent.G_t
+
+            if iteration is not None:
+                seed = iteration + len(returns_history)
+            else:
+                seed = len(returns_history)
+            
+            # Sample trajectory and store in agents
+            policy_agent, value_agent = sample_monte_carlo(
+                env=env, policy_agent=policy_agent, value_agent=value_agent, seed=seed
+            )
+            G_t = value_agent.G_t # Advantage
+
             policy_info = policy_agent.update(objectives=G_t)
             value_info = value_agent.update()
 
@@ -82,18 +94,26 @@ def A2C(config: Config, env: gym.Env, save_plot: Path | None = None):
                 value_loss=f"{value_info['loss']:.3f}",
                 episode=episode,
                 mean_return=mean_return,
+                steps=episode_steps
             )
             pbar.update(episode_steps)
 
-            if mean_return >= 475:
-                print("\n")
-                print(f"Solved at episode {episode} with a mean return over the last 100 episodes of {mean_return}")
-                break
-
-    training_info = {"Returns": returns_history, "Policy Loss": loss_history["Policy"], "Value_Loss": loss_history["Value"]}
-    fig = plot_training(training_info, window=20, poly=2)
+    training_info = {
+        "Returns": returns_history,
+        "Policy Loss": loss_history["Policy"],
+        "Value_Loss": loss_history["Value"],
+    }
+    fig = plot_training(training_info, window=20, poly=2, plot=plot)
     if save_plot:
-        fig.savefig(save_plot / f"{config.run.name}_training.png")
+        if iteration is None:
+            fig.savefig(save_plot / f"{config.run.name}_training.png")
+        else:
+            fig.savefig(save_plot / f"{config.run.name}_{iteration}_training.png")
+    
+    return training_info
+
+
+    
 
 
 if __name__ == "__main__":
