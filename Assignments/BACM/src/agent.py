@@ -63,7 +63,7 @@ class ValueNetwork(nn.Module):
         return self.output_layer(x)
 
 class PolicyAgent:
-    def __init__(self, agent_cfg: AgentConfig, nn_cfg: NNConfig) -> None:
+    def __init__(self, agent_cfg: AgentConfig, nn_cfg: NNConfig, advantage: bool = False) -> None:
         self.agent_cfg = agent_cfg
         self.nn_cfg = nn_cfg
         self.policy = PINetwork(
@@ -71,6 +71,8 @@ class PolicyAgent:
             nn_cfg.output_dim,
             nn_cfg.features,
         )
+
+        self.advantage = advantage
         self.optimizer = self._build_optimizer(nn_cfg.optim)
         # Define arrays of rollout monte carlo
         self.log_probs: list[Tensor] = []
@@ -122,7 +124,8 @@ class PolicyAgent:
             assert len(objectives) == T, f"The length of G_t is not the same as the episode length. This is in the 'update' method in PolicyAgent and G_t has a shape of {objectives.shape}"
             objectives = objectives
 
-        objectives = (objectives - objectives.mean()) / (objectives.std() + 1e-8)
+        if not self.advantage:
+            objectives = (objectives - objectives.mean()) / (objectives.std() + 1e-8)
         assert T == len(objectives), f"T = {T}, len(G_T) = {len(objectives)}"
         log_probs = torch.stack(self.log_probs)
         loss = -1 * (log_probs * objectives).sum()
@@ -180,9 +183,6 @@ class ValueAgent:
 
         return registry[loss]
     
-    def MSELoss(self, target, pred):
-        l = torch.mean(torch.abs(torch.square(target - pred) - 1))
-        return l
 
     def values(self, obs: Tensor) -> Tensor:
 
@@ -238,7 +238,7 @@ class ValueAgent:
         target = (target - target.mean())/(target.std() + 1e-8) 
         pred = torch.stack(self.V_s)
 
-        l = self.MSELoss(target=target, pred=pred)    
+        l = self.loss(pred, target)    
         self.optimizer.zero_grad()   
         l.backward()
         self.optimizer.step()
