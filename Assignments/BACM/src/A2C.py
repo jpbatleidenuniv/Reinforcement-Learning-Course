@@ -22,9 +22,9 @@ def load_config(name: str) -> Config:
 
 
 def sample_monte_carlo(
-    env: gym.Env, policy_agent: PolicyAgent, value_agent: ValueAgent
+    env: gym.Env, policy_agent: PolicyAgent, value_agent: ValueAgent, seed: int
 ) -> tuple[PolicyAgent, ValueAgent]:
-    obs, _ = env.reset()
+    obs, _ = env.reset(seed=seed)
     truncated, terminated = False, False
     rewards = []
     log_probs = []
@@ -50,7 +50,7 @@ def sample_monte_carlo(
     return policy_agent, value_agent
 
 
-def A2C(config: Config, env: gym.Env, save_plot: Path | None = None):
+def A2C(config: Config, env: gym.Env, save_plot: Path | None = None, plot: bool = True, iteration: int | None = None):
 
     policy_agent = PolicyAgent(config.agent, config.nn)
     value_agent = ValueAgent(config.agent, config.nn, advantage=True)
@@ -59,15 +59,23 @@ def A2C(config: Config, env: gym.Env, save_plot: Path | None = None):
     loss_history = {"Policy": [], "Value": []}
 
     total_steps = 0
-    max_steps = 10**6
+    max_steps = int(config.run.n_steps)
     episode = 0
 
     with tqdm(total=max_steps, unit="steps") as pbar:
         while total_steps < max_steps:
+
+            if iteration is not None:
+                seed = iteration + len(returns_history)
+            else:
+                seed = len(returns_history)
+            
+            # Sample trajectory and store in agents
             policy_agent, value_agent = sample_monte_carlo(
-                env=env, policy_agent=policy_agent, value_agent=value_agent
+                env=env, policy_agent=policy_agent, value_agent=value_agent, seed=seed
             )
-            G_t = value_agent.G_t
+            G_t = value_agent.G_t # Advantage
+
             policy_info = policy_agent.update(objectives=G_t)
             value_info = value_agent.update()
 
@@ -86,24 +94,26 @@ def A2C(config: Config, env: gym.Env, save_plot: Path | None = None):
                 value_loss=f"{value_info['loss']:.3f}",
                 episode=episode,
                 mean_return=mean_return,
+                steps=episode_steps
             )
             pbar.update(episode_steps)
-
-            if mean_return >= 475:
-                print("\n")
-                print(
-                    f"Solved at episode {episode} with a mean return over the last 100 episodes of {mean_return}"
-                )
-                break
 
     training_info = {
         "Returns": returns_history,
         "Policy Loss": loss_history["Policy"],
         "Value_Loss": loss_history["Value"],
     }
-    fig = plot_training(training_info, window=20, poly=2)
+    fig = plot_training(training_info, window=20, poly=2, plot=plot)
     if save_plot:
-        fig.savefig(save_plot / f"{config.run.name}_training.png")
+        if iteration is None:
+            fig.savefig(save_plot / f"{config.run.name}_training.png")
+        else:
+            fig.savefig(save_plot / f"{config.run.name}_{iteration}_training.png")
+    
+    return training_info
+
+
+    
 
 
 if __name__ == "__main__":

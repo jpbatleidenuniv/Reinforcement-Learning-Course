@@ -21,7 +21,7 @@ def plot_curve(ax: Axes, y, window, poly, label="Return", color="blue") -> Axes:
     return ax
 
 
-def plot_training(training_info: Mapping[str, Any], window, poly) -> Figure:
+def plot_training(training_info: Mapping[str, Any], window, poly, plot=True) -> Figure:
     plot_names = training_info.keys()
     n_plots = len(plot_names)
     fig, axes = plt.subplots(nrows=n_plots, ncols=1)
@@ -30,5 +30,6 @@ def plot_training(training_info: Mapping[str, Any], window, poly) -> Figure:
     for ax, (name, data) in zip(axes, training_info.items()):
         plot_curve(ax, data, window=window, poly=poly, label=name)
     plt.legend()
-    plt.show()
+    if plot:
+        plt.show()
     return fig

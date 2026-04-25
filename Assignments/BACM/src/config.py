@@ -10,6 +10,7 @@ class RunConfig:
     n_episodes: int = 500
     n_eval_timesteps: int = 5_000
     n_eval_episodes: int = 100
+    n_steps: float = 5e5
 
 
 @dataclass(frozen=True)
