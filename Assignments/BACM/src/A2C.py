@@ -127,7 +127,7 @@ def A2C(config: Config, env: gym.Env, save_plot: Path | None = None, plot: bool 
                     env=env,
                     policy_agent=policy_agent,
                     n_episodes=n_eval_episodes,
-                    seed_offset=total_steps,   # reproducible but distinct from training seeds
+                    seed_offset=total_steps,   
                 )
                 eval_info["step"] = total_steps
                 eval_history.append(eval_info)

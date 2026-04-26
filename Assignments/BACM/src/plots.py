@@ -37,7 +37,7 @@ def plot_training(training_info: Mapping[str, Any], window, poly, plot=True) -> 
     return fig
 
 
-def plot_results(results: dict, window: int, poly: int, baseline_df: pd.DataFrame) -> Figure:
+def plot_results(results: dict, window: int, poly: int, baseline_df: pd.DataFrame | None) -> Figure:
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 10))
 
     colors = {"A2C": "blue", "AC": "red", "REINFORCE": "green", "Baseline":"black"}
@@ -74,9 +74,10 @@ def plot_results(results: dict, window: int, poly: int, baseline_df: pd.DataFram
         )
         ax.grid(alpha=0.3) 
     
-    x = baseline_df["env_step"]
-    y = smooth(baseline_df["Episode_Return_smooth"], window=window+10, poly=poly)
-    ax.plot(x, y, label='DQN', color='black', linewidth=1.5, linestyle='--')
+    if baseline_df is not None:
+        x = baseline_df["env_step"]
+        y = smooth(baseline_df["Episode_Return_smooth"], window=window+10, poly=poly)
+        ax.plot(x, y, label='DQN', color='black', linewidth=1.5, linestyle='--')
 
     ax.tick_params(axis='both', labelsize=18)
     ax.set_xlabel("Steps", fontsize=25)
@@ -91,8 +92,11 @@ if __name__ == "__main__":
     with open("results/results_20260426_090218.pkl", "rb") as f:
         results = pickle.load(f)
 
-    df = pd.read_csv("results/BaselineDataCartPole.csv")
-    baseline_df = df[df['env_step'] <= 500000].sort_values('env_step')
+    try:
+        df = pd.read_csv("results/BaselineDataCartPole.csv")
+        baseline_df = df[df['env_step'] <= 500000].sort_values('env_step')
+    except:
+        baseline_df = None
 
     fig = plot_results(results, window=20, poly=2, baseline_df=baseline_df)
     fig.savefig("results/comparison.png", dpi=150)

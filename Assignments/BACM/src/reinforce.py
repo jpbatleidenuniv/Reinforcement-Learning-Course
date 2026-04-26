@@ -88,7 +88,7 @@ def reinforce(config: Config, env: gym.Env, save_plot: Path | None = None, plot:
 
     with tqdm(total=max_steps, unit="steps") as pbar:
         while total_steps < max_steps:
-
+            
             if iteration is not None:
                 seed = iteration * len(returns_history) + iteration
             else:
@@ -107,7 +107,7 @@ def reinforce(config: Config, env: gym.Env, save_plot: Path | None = None, plot:
                     env=env,
                     policy_agent=agent,
                     n_episodes=n_eval_episodes,
-                    seed_offset=total_steps,   # reproducible but distinct from training seeds
+                    seed_offset=total_steps,   
                 )
                 eval_info["step"] = total_steps
                 eval_history.append(eval_info)
