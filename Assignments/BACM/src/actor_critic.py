@@ -164,7 +164,8 @@ def AC(
         "Value_Loss": loss_history["Value"],
         "Eval": eval_history,
     }
-    fig = plot_training(training_info, window=20, poly=2, plot=plot)
+    plot_data = {k: v for k, v in training_info.items() if k != "Eval"}
+    fig = plot_training(plot_data, window=20, poly=2, plot=plot)
     if save_plot:
         if iteration is None:
             fig.savefig(save_plot / f"{config.run.name}_training.png")
