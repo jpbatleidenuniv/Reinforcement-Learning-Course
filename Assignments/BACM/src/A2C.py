@@ -104,7 +104,7 @@ def A2C(config: Config, env: gym.Env, save_plot: Path | None = None, plot: bool 
         while total_steps < max_steps:
 
             if iteration is not None:
-                seed = iteration + len(returns_history)
+                seed = iteration + len(returns_history)*iteration
             else:
                 seed = len(returns_history)
             

@@ -110,7 +110,7 @@ def AC(
 
             # ── Training episode ──────────────────────────────────────────────
             if iteration is not None:
-                seed = iteration + len(returns_history)
+                seed = iteration + len(returns_history)*iteration
             else:
                 seed = len(returns_history)
 

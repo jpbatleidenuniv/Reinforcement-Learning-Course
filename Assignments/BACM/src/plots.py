@@ -59,6 +59,9 @@ def plot_results(results: dict, window: int, poly: int, baseline_df: pd.DataFram
         # Average and std across repetitions
         mean_across_runs = all_means.mean(axis=0)
         std_across_runs = all_means.std(axis=0)
+        
+        mean_across_runs = smooth(mean_across_runs, window=window, poly=poly)
+        std_across_runs = smooth(std_across_runs, window=window, poly=poly)
 
         color = colors.get(method, None)
         ax.plot(steps, mean_across_runs, label=method, color=color, linewidth=1.5)
@@ -72,7 +75,7 @@ def plot_results(results: dict, window: int, poly: int, baseline_df: pd.DataFram
         ax.grid(alpha=0.3) 
     
     x = baseline_df["env_step"]
-    y = smooth(baseline_df["Episode_Return_smooth"], window=window, poly=poly)
+    y = smooth(baseline_df["Episode_Return_smooth"], window=window+10, poly=poly)
     ax.plot(x, y, label='DQN', color='black', linewidth=1.5, linestyle='--')
 
     ax.tick_params(axis='both', labelsize=18)
@@ -91,5 +94,5 @@ if __name__ == "__main__":
     df = pd.read_csv("results/BaselineDataCartPole.csv")
     baseline_df = df[df['env_step'] <= 500000].sort_values('env_step')
 
-    fig = plot_results(results, window=30, poly=2, baseline_df=baseline_df)
+    fig = plot_results(results, window=20, poly=2, baseline_df=baseline_df)
     fig.savefig("results/comparison.png", dpi=150)

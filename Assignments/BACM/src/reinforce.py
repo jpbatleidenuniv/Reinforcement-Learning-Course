@@ -73,7 +73,7 @@ def evaluate(
     }
 
 
-def reinforce(config: Config, env: gym.Env, save_plot: Path | None = None, plot: bool = True, iteration: int | None = None, eval_interval: int = 500, n_eval_episodes: int = 10):
+def reinforce(config: Config, env: gym.Env, save_plot: Path | None = None, plot: bool = True, iteration: int | None = None, eval_interval: int = 5000, n_eval_episodes: int = 10):
 
     agent = PolicyAgent(config.agent, config.nn)
     returns_history = []
@@ -90,7 +90,7 @@ def reinforce(config: Config, env: gym.Env, save_plot: Path | None = None, plot:
         while total_steps < max_steps:
 
             if iteration is not None:
-                seed = iteration + len(returns_history)
+                seed = iteration * len(returns_history) + iteration
             else:
                 seed = len(returns_history)
             
