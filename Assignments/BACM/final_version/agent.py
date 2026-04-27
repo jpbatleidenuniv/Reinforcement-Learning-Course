@@ -37,25 +37,20 @@ class PINetwork(nn.Module):
 
 class ValueNetwork(nn.Module):
     def __init__(
-            self,
-            input_dim: int,
-            output_dim: int,
-            features: Sequence[int],
+        self,
+        input_dim: int,
+        output_dim: int,
+        features: Sequence[int],
     ):
         super().__init__()
         self.input_layer = nn.Sequential(nn.Linear(input_dim, features[0]), nn.ReLU())
         self.body = nn.ModuleList(
             [
-                nn.Sequential(
-                    nn.Linear(features[i], features[i + 1]),
-                    nn.ReLU()
-                )
+                nn.Sequential(nn.Linear(features[i], features[i + 1]), nn.ReLU())
                 for i in range(len(features) - 1)
             ]
         )
-        self.output_layer = nn.Sequential(
-            nn.Linear(features[-1], output_dim)
-        )
+        self.output_layer = nn.Sequential(nn.Linear(features[-1], output_dim))
 
     def forward(self, x: Tensor) -> Tensor:
         x = self.input_layer(x)
@@ -65,7 +60,9 @@ class ValueNetwork(nn.Module):
 
 
 class PolicyAgent:
-    def __init__(self, agent_cfg: AgentConfig, nn_cfg: NNConfig, advantage: bool = False) -> None:
+    def __init__(
+        self, agent_cfg: AgentConfig, nn_cfg: NNConfig, advantage: bool = False
+    ) -> None:
         self.agent_cfg = agent_cfg
         self.nn_cfg = nn_cfg
         self.policy = PINetwork(
@@ -100,9 +97,15 @@ class PolicyAgent:
 
     def _build_optimizer(self, optimizer: str):
         registry = {
-            "AdamW": torch.optim.AdamW(self.policy.parameters(), lr=self.nn_cfg.policy_lr),
-            "Adam": torch.optim.Adam(self.policy.parameters(), lr=self.nn_cfg.policy_lr),
-            "RMSprop": torch.optim.RMSprop(self.policy.parameters(), lr=self.nn_cfg.policy_lr),
+            "AdamW": torch.optim.AdamW(
+                self.policy.parameters(), lr=self.nn_cfg.policy_lr
+            ),
+            "Adam": torch.optim.Adam(
+                self.policy.parameters(), lr=self.nn_cfg.policy_lr
+            ),
+            "RMSprop": torch.optim.RMSprop(
+                self.policy.parameters(), lr=self.nn_cfg.policy_lr
+            ),
         }
         if optimizer not in registry:
             raise ValueError(f"Unknown optimizer: {optimizer}")
@@ -158,7 +161,9 @@ class PolicyAgent:
 
 
 class ValueAgent:
-    def __init__(self, agent_cfg: AgentConfig, nn_cfg: NNConfig, advantage=False) -> None:
+    def __init__(
+        self, agent_cfg: AgentConfig, nn_cfg: NNConfig, advantage=False
+    ) -> None:
         self.agent_cfg = agent_cfg
         self.nn_cfg = nn_cfg
         # Value function always outputs a scalar regardless of the action-space size.
@@ -183,9 +188,13 @@ class ValueAgent:
 
     def _build_optimizer(self, optimizer: str):
         registry = {
-            "AdamW": torch.optim.AdamW(self.value.parameters(), lr=self.nn_cfg.value_lr),
+            "AdamW": torch.optim.AdamW(
+                self.value.parameters(), lr=self.nn_cfg.value_lr
+            ),
             "Adam": torch.optim.Adam(self.value.parameters(), lr=self.nn_cfg.value_lr),
-            "RMSprop": torch.optim.RMSprop(self.value.parameters(), lr=self.nn_cfg.value_lr),
+            "RMSprop": torch.optim.RMSprop(
+                self.value.parameters(), lr=self.nn_cfg.value_lr
+            ),
         }
         if optimizer not in registry:
             raise ValueError(f"Unknown optimizer: {optimizer}")
@@ -194,7 +203,7 @@ class ValueAgent:
     def _loss(self, loss: str):
         registry = {
             "MSE": torch.nn.MSELoss(),
-            "Huber": torch.nn.HuberLoss(reduction='mean', delta=self.agent_cfg.n_steps)
+            "Huber": torch.nn.HuberLoss(reduction="mean", delta=self.agent_cfg.n_steps),
         }
         if loss not in registry:
             raise ValueError(f"Unknown loss function: {loss}")
@@ -218,28 +227,30 @@ class ValueAgent:
             torch.arange(self.n_steps, dtype=torch.float32),
         )
         # Scalar bootstrap factor γ^n_steps (one step beyond the n reward steps)
-        bootstrap_gamma = gamma ** self.n_steps
+        bootstrap_gamma = gamma**self.n_steps
 
         g_t: list[Tensor] = []
 
-        assert len(self.V_s) == T, (
-            f"V_s has length {len(self.V_s)}, while T has length {T}"
-        )
+        assert (
+            len(self.V_s) == T
+        ), f"V_s has length {len(self.V_s)}, while T has length {T}"
 
         for k in range(T):
             if k + self.n_steps < T:
 
                 rewards = torch.tensor(
-                    self.rewards[k: k + self.n_steps], dtype=torch.float32
+                    self.rewards[k : k + self.n_steps], dtype=torch.float32
                 )
-                discounted_r = gammas * rewards                              # y^0*r_k … y^{n-1}*r_{k+n-1}
-                discounted_v = bootstrap_gamma * self.V_s[k + self.n_steps]  # y^n * V(s_{k+n})
+                discounted_r = gammas * rewards  # y^0*r_k … y^{n-1}*r_{k+n-1}
+                discounted_v = (
+                    bootstrap_gamma * self.V_s[k + self.n_steps]
+                )  # y^n * V(s_{k+n})
                 g = discounted_r.sum() + discounted_v
 
             else:
                 # Tail: fewer than n steps remain — use available rewards only, no bootstrap
                 rewards = torch.tensor(self.rewards[k:], dtype=torch.float32)
-                discounted_r = gammas[:len(rewards)] * rewards
+                discounted_r = gammas[: len(rewards)] * rewards
                 g = torch.sum(discounted_r, dtype=torch.float32)
 
             if self.advantage:
@@ -251,15 +262,17 @@ class ValueAgent:
         self._g_t = g_t
         return torch.stack(g_t)
 
-    def update(self):
-        target = torch.stack(self._g_t).detach()
-        target = (target - target.mean()) / (target.std() + 1e-8)
+    def update(self, target: Tensor | None = None):
+        if target is None:
+            target = torch.stack(self._g_t).detach()
+        else:
+            target = target.detach()
+
         pred = torch.stack(self.V_s)
 
         l = self.loss(pred, target)
         self.optimizer.zero_grad()
         l.backward()
-
         self.optimizer.step()
 
         info = {"loss": l.detach().item()}
