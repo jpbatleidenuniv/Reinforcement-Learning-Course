@@ -1,18 +1,18 @@
 run:
-  name: ac
+  name: AC
   max_steps_episode: 10000
   n_episodes: 500
   n_eval_timesteps: 5000
   n_eval_episodes: 100
-  n_steps: 500000
+  n_steps: 250000
 
 nn:
   input_dim: 4
   output_dim: 2
   features: [256, 256]
-  lr: 0.001
+  lr: 0.0005
   optim: AdamW
 
 agent:
   gamma: 0.99
-  n_steps: 10
+  n_steps: 5

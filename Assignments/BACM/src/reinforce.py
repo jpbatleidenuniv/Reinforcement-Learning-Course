@@ -35,7 +35,13 @@ def sample_monte_carlo(env: gym.Env, agent: PolicyAgent, seed: int) -> PolicyAge
     return agent
 
 
-def reinforce(config: Config, env: gym.Env, save_plot: Path | None = None, plot: bool = True, iteration: int | None = None):
+def reinforce(
+    config: Config,
+    env: gym.Env,
+    save_plot: Path | None = None,
+    plot: bool = True,
+    iteration: int | None = None,
+):
     agent = PolicyAgent(config.agent, config.nn)
     returns_history = []
     loss_history = []
@@ -50,8 +56,10 @@ def reinforce(config: Config, env: gym.Env, save_plot: Path | None = None, plot:
                 seed = iteration + len(returns_history)
             else:
                 seed = len(returns_history)
-            
-            agent = sample_monte_carlo(env=env, agent=agent, seed=seed) # Sample trajectory and store it in agent
+
+            agent = sample_monte_carlo(
+                env=env, agent=agent, seed=seed
+            )  # Sample trajectory and store it in agent
             info = agent.update()  # Contains loss, step, rewards
 
             returns_history.append(info["episode_return"])
@@ -78,7 +86,7 @@ def reinforce(config: Config, env: gym.Env, save_plot: Path | None = None, plot:
 
 
 if __name__ == "__main__":
-    name = "base"
+    name = "reinforce"
     save_path = Path("results/")
     save_path.mkdir(exist_ok=True)
     cfg = load_config(name)

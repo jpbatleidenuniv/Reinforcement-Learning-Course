@@ -125,7 +125,7 @@ class PolicyAgent:
             objectives = objectives
 
         # we do not want standardization
-        # objectives = (objectives - objectives.mean()) / (objectives.std() + 1e-8)
+        objectives = (objectives - objectives.mean()) / (objectives.std() + 1e-8)
         assert T == len(objectives), f"T = {T}, len(G_T) = {len(objectives)}"
         log_probs = torch.stack(self.log_probs)
         loss = -1 * (log_probs * objectives).sum()
