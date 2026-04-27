@@ -8,6 +8,7 @@ dependencies = [
     "clear>=2.0.0",
     "gymnasium>=1.2.3",
     "matplotlib>=3.10.8",
+    "pandas>=3.0.2",
     "pyaml>=26.2.1",
     "pyyaml>=6.0.3",
     "scipy>=1.17.1",

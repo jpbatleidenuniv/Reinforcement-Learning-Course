@@ -9,7 +9,6 @@ import pickle
 import numpy as np
 import pandas as pd
 
-
 def plot_curve(ax: Axes, y, window, poly, label="Return", color="blue") -> Axes:
     """Plot a specific curve for a run, allows for inclusion of non-smoothed curve"""
     ax.plot(y, alpha=0.3, color="red", label="raw")
@@ -38,12 +37,10 @@ def plot_training(training_info: Mapping[str, Any], window, poly, plot=True) -> 
     return fig
 
 
-def plot_results(
-    results: dict, window: int, poly: int, baseline_df: pd.DataFrame | None
-) -> Figure:
+def plot_results(results: dict, window: int, poly: int, baseline_df: pd.DataFrame | None) -> Figure:
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 10))
 
-    colors = {"A2C": "blue", "AC": "red", "REINFORCE": "green", "Baseline": "black"}
+    colors = {"A2C": "blue", "AC": "red", "REINFORCE": "green", "Baseline":"black"}
 
     for method, repetitions in results.items():
         # repetitions is a list of 5 eval_history lists
@@ -54,12 +51,15 @@ def plot_results(
         steps = [ckpt["step"] for ckpt in repetitions[0]]
 
         # Stack means across repetitions: shape (n_repetitions, n_checkpoints)
-        all_means = np.array([[ckpt["mean"] for ckpt in rep] for rep in repetitions])
+        all_means = np.array([
+            [ckpt["mean"] for ckpt in rep]
+            for rep in repetitions
+        ])
 
         # Average and std across repetitions
         mean_across_runs = all_means.mean(axis=0)
         std_across_runs = all_means.std(axis=0)
-
+        
         mean_across_runs = smooth(mean_across_runs, window=window, poly=poly)
         std_across_runs = smooth(std_across_runs, window=window, poly=poly)
 
@@ -72,14 +72,14 @@ def plot_results(
             alpha=0.1,
             color=color,
         )
-        ax.grid(alpha=0.3)
-
+        ax.grid(alpha=0.3) 
+    
     if baseline_df is not None:
         x = baseline_df["env_step"]
-        y = smooth(baseline_df["Episode_Return_smooth"], window=window + 10, poly=poly)
-        ax.plot(x, y, label="DQN", color="black", linewidth=1.5, linestyle="--")
+        y = smooth(baseline_df["Episode_Return_smooth"], window=window+10, poly=poly)
+        ax.plot(x, y, label='DQN', color='black', linewidth=1.5, linestyle='--')
 
-    ax.tick_params(axis="both", labelsize=18)
+    ax.tick_params(axis='both', labelsize=18)
     ax.set_xlabel("Steps", fontsize=25)
     ax.set_ylabel("Mean Return (greedy)", fontsize=25)
     ax.legend(fontsize=22)
@@ -89,14 +89,14 @@ def plot_results(
 
 
 if __name__ == "__main__":
-    with open("results/results_20260427_010921.pkl", "rb") as f:
+    with open("results/results_20260426_090218.pkl", "rb") as f:
         results = pickle.load(f)
 
     try:
-        df = pd.read_csv("results/BaselineDataCartPole.csv")
-        baseline_df = df[df["env_step"] <= 500000].sort_values("env_step")
+        df = pd.read_csv("BaselineDataCartPole.csv")
+        baseline_df = df[df['env_step'] <= 500000].sort_values('env_step')
     except:
         baseline_df = None
 
     fig = plot_results(results, window=20, poly=2, baseline_df=baseline_df)
-    fig.savefig("results/comparison1.png", dpi=150)
+    fig.savefig("results/comparison.png", dpi=150)

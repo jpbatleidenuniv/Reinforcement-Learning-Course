@@ -4,15 +4,16 @@ run:
   n_episodes: 500
   n_eval_timesteps: 5000
   n_eval_episodes: 100
-  n_steps: 250000
+  n_steps: 500000
 
 nn:
   input_dim: 4
   output_dim: 2
   features: [256, 256]
-  lr: 0.0005
+  value_lr: 0.0001
+  policy_lr: 0.00005
   optim: AdamW
 
 agent:
   gamma: 0.99
-  n_steps: 5
+  n_steps: 10

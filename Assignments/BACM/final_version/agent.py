@@ -37,34 +37,35 @@ class PINetwork(nn.Module):
 
 class ValueNetwork(nn.Module):
     def __init__(
-        self,
-        input_dim: int,
-        output_dim: int,
-        features: Sequence[int],
+            self,
+            input_dim: int,
+            output_dim: int,
+            features: Sequence[int],
     ):
         super().__init__()
         self.input_layer = nn.Sequential(nn.Linear(input_dim, features[0]), nn.ReLU())
-
         self.body = nn.ModuleList(
             [
-                nn.Sequential(nn.Linear(features[i], features[i + 1]), nn.ReLU())
+                nn.Sequential(
+                    nn.Linear(features[i], features[i + 1]),
+                    nn.ReLU()
+                )
                 for i in range(len(features) - 1)
             ]
         )
-
-        self.output_layer = nn.Linear(features[-1], 1)
+        self.output_layer = nn.Sequential(
+            nn.Linear(features[-1], output_dim)
+        )
 
     def forward(self, x: Tensor) -> Tensor:
         x = self.input_layer(x)
         for layer in self.body:
             x = layer(x)
-        return self.output_layer(x).squeeze(-1)
+        return self.output_layer(x)
 
 
 class PolicyAgent:
-    def __init__(
-        self, agent_cfg: AgentConfig, nn_cfg: NNConfig, advantage: bool = False
-    ) -> None:
+    def __init__(self, agent_cfg: AgentConfig, nn_cfg: NNConfig, advantage: bool = False) -> None:
         self.agent_cfg = agent_cfg
         self.nn_cfg = nn_cfg
         self.policy = PINetwork(
@@ -99,15 +100,9 @@ class PolicyAgent:
 
     def _build_optimizer(self, optimizer: str):
         registry = {
-            "AdamW": torch.optim.AdamW(
-                self.policy.parameters(), lr=self.nn_cfg.policy_lr
-            ),
-            "Adam": torch.optim.Adam(
-                self.policy.parameters(), lr=self.nn_cfg.policy_lr
-            ),
-            "RMSprop": torch.optim.RMSprop(
-                self.policy.parameters(), lr=self.nn_cfg.policy_lr
-            ),
+            "AdamW": torch.optim.AdamW(self.policy.parameters(), lr=self.nn_cfg.policy_lr),
+            "Adam": torch.optim.Adam(self.policy.parameters(), lr=self.nn_cfg.policy_lr),
+            "RMSprop": torch.optim.RMSprop(self.policy.parameters(), lr=self.nn_cfg.policy_lr),
         }
         if optimizer not in registry:
             raise ValueError(f"Unknown optimizer: {optimizer}")
@@ -117,7 +112,7 @@ class PolicyAgent:
     def _returns(self):
         """Tensor of G_1 ... G_T"""
         T = len(self.rewards)
-        rewards = torch.tensor(self.rewards, dtype=torch.float32)
+        rewards = torch.tensor(self.rewards)
         gammas = torch.pow(
             torch.tensor(self.agent_cfg.gamma, dtype=torch.float32),
             torch.arange(T, dtype=torch.float32),
@@ -163,9 +158,7 @@ class PolicyAgent:
 
 
 class ValueAgent:
-    def __init__(
-        self, agent_cfg: AgentConfig, nn_cfg: NNConfig, advantage=False
-    ) -> None:
+    def __init__(self, agent_cfg: AgentConfig, nn_cfg: NNConfig, advantage=False) -> None:
         self.agent_cfg = agent_cfg
         self.nn_cfg = nn_cfg
         # Value function always outputs a scalar regardless of the action-space size.
@@ -181,11 +174,7 @@ class ValueAgent:
         self.loss = self._loss(nn_cfg.loss)
         self.n_steps = agent_cfg.n_steps
 
-        self.optimizer = self._build_optimizer(nn_cfg.optim)
-        self.loss = nn.MSELoss()
-        self.n_steps = agent_cfg.n_steps
-        self.advantage = advantage
-
+        # Define arrays of rollout monte carlo
         self.V_s: list[Tensor] = []
         self.rewards: list[float] = []
         self._g_t: list[Tensor] = []
@@ -194,13 +183,9 @@ class ValueAgent:
 
     def _build_optimizer(self, optimizer: str):
         registry = {
-            "AdamW": torch.optim.AdamW(
-                self.value.parameters(), lr=self.nn_cfg.value_lr
-            ),
+            "AdamW": torch.optim.AdamW(self.value.parameters(), lr=self.nn_cfg.value_lr),
             "Adam": torch.optim.Adam(self.value.parameters(), lr=self.nn_cfg.value_lr),
-            "RMSprop": torch.optim.RMSprop(
-                self.value.parameters(), lr=self.nn_cfg.value_lr
-            ),
+            "RMSprop": torch.optim.RMSprop(self.value.parameters(), lr=self.nn_cfg.value_lr),
         }
         if optimizer not in registry:
             raise ValueError(f"Unknown optimizer: {optimizer}")
@@ -209,7 +194,7 @@ class ValueAgent:
     def _loss(self, loss: str):
         registry = {
             "MSE": torch.nn.MSELoss(),
-            "Huber": torch.nn.HuberLoss(reduction="mean", delta=self.agent_cfg.n_steps),
+            "Huber": torch.nn.HuberLoss(reduction='mean', delta=self.agent_cfg.n_steps)
         }
         if loss not in registry:
             raise ValueError(f"Unknown loss function: {loss}")
@@ -233,37 +218,28 @@ class ValueAgent:
             torch.arange(self.n_steps, dtype=torch.float32),
         )
         # Scalar bootstrap factor γ^n_steps (one step beyond the n reward steps)
-        bootstrap_gamma = gamma**self.n_steps
+        bootstrap_gamma = gamma ** self.n_steps
 
         g_t: list[Tensor] = []
 
-        assert (
-            len(self.V_s) == T
-        ), f"V_s has length {len(self.V_s)}, while T has length {T}"
+        assert len(self.V_s) == T, (
+            f"V_s has length {len(self.V_s)}, while T has length {T}"
+        )
 
         for k in range(T):
-            G = torch.tensor(0.0, dtype=torch.float32)
-
-            max_n = min(self.n_steps, T - k)
-
-            for i in range(max_n):
-                G = G + (self.agent_cfg.gamma**i) * self.rewards[k + i]
-
             if k + self.n_steps < T:
 
                 rewards = torch.tensor(
-                    self.rewards[k : k + self.n_steps], dtype=torch.float32
+                    self.rewards[k: k + self.n_steps], dtype=torch.float32
                 )
-                discounted_r = gammas * rewards  # y^0*r_k … y^{n-1}*r_{k+n-1}
-                discounted_v = (
-                    bootstrap_gamma * self.V_s[k + self.n_steps]
-                )  # y^n * V(s_{k+n})
+                discounted_r = gammas * rewards                              # y^0*r_k … y^{n-1}*r_{k+n-1}
+                discounted_v = bootstrap_gamma * self.V_s[k + self.n_steps]  # y^n * V(s_{k+n})
                 g = discounted_r.sum() + discounted_v
 
             else:
                 # Tail: fewer than n steps remain — use available rewards only, no bootstrap
                 rewards = torch.tensor(self.rewards[k:], dtype=torch.float32)
-                discounted_r = gammas[: len(rewards)] * rewards
+                discounted_r = gammas[:len(rewards)] * rewards
                 g = torch.sum(discounted_r, dtype=torch.float32)
 
             if self.advantage:
@@ -273,14 +249,7 @@ class ValueAgent:
                 g_t.append(g.detach())
 
         self._g_t = g_t
-
-        targets = torch.stack(g_t)
-
-        if self.advantage:
-            values = torch.stack(self.V_s).detach()
-            return targets - values
-
-        return targets
+        return torch.stack(g_t)
 
     def update(self):
         target = torch.stack(self._g_t).detach()
@@ -293,10 +262,11 @@ class ValueAgent:
 
         self.optimizer.step()
 
-        info = {"loss": loss.detach().item()}
+        info = {"loss": l.detach().item()}
 
-        self.V_s.clear()
-        self.rewards.clear()
-        self._g_t.clear()
+        # We wipe the episode information for the next episode
+        self.V_s = []
+        self.rewards = []
+        self._g_t = []
 
         return info

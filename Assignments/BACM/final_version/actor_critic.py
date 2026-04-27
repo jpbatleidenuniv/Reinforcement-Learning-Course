@@ -1,5 +1,6 @@
 import gymnasium as gym
 import yaml
+import torch
 import numpy as np
 from tqdm import tqdm
 from pathlib import Path
@@ -9,8 +10,7 @@ from plots import plot_training
 
 
 def load_config(name: str) -> Config:
-    config_dir = Path("configs")
-    config_path = config_dir / f"{name}.yaml"
+    config_path = f"{name}.yaml"
     with open(config_path) as f:
         config = yaml.safe_load(f)
         nn_cfg = NNConfig(**config["nn"])
@@ -30,13 +30,11 @@ def sample_monte_carlo(
     V_ss = []
 
     while not (truncated or terminated):
-        # We let the agent explore
         action, pred, pi_s = policy_agent.select_action(obs)
         V_s = value_agent.values(obs)
 
         obs, r, terminated, truncated, _ = env.step(action)
 
-        # For each t we save pi_at_st and r_t
         rewards.append(float(r))
         log_probs.append(pred)
         V_ss.append(V_s)
@@ -85,7 +83,7 @@ def evaluate(
     }
 
 
-def A2C(
+def AC(
     config: Config,
     env: gym.Env,
     save_plot: Path | None = None,
@@ -94,33 +92,31 @@ def A2C(
     eval_interval: int = 5000,
     n_eval_episodes: int = 10,
 ):
-
     policy_agent = PolicyAgent(config.agent, config.nn)
-    value_agent = ValueAgent(config.agent, config.nn, advantage=True)
+    value_agent = ValueAgent(config.agent, config.nn)
 
     returns_history = []
     loss_history = {"Policy": [], "Value": []}
-    eval_history: list[dict] = []  # {"step": int, "mean": float, "std": float}
+    eval_history: list[dict] = []   # {"step": int, "mean": float, "std": float}
 
     total_steps = 0
     max_steps = int(config.run.n_steps)
     episode = 0
-    next_eval_at = eval_interval  # trigger first eval after this many steps
+    next_eval_at = eval_interval   # trigger first eval after this many steps
 
     with tqdm(total=max_steps, unit="steps") as pbar:
         while total_steps < max_steps:
 
+            # Training episode
             if iteration is not None:
-                seed = iteration + len(returns_history) * iteration
+                seed = iteration + len(returns_history)*iteration
             else:
                 seed = len(returns_history)
 
-            # Sample trajectory and store in agents
             policy_agent, value_agent = sample_monte_carlo(
                 env=env, policy_agent=policy_agent, value_agent=value_agent, seed=seed
             )
-            G_t = value_agent.G_t  # Advantage
-
+            G_t = value_agent.G_t
             policy_info = policy_agent.update(objectives=G_t)
             value_info = value_agent.update()
 
@@ -134,7 +130,7 @@ def A2C(
                     env=env,
                     policy_agent=policy_agent,
                     n_episodes=n_eval_episodes,
-                    seed_offset=total_steps,
+                    seed_offset=total_steps,  
                 )
                 eval_info["step"] = total_steps
                 eval_history.append(eval_info)
@@ -150,6 +146,7 @@ def A2C(
             loss_history["Policy"].append(policy_info["loss"])
             loss_history["Value"].append(value_info["loss"])
 
+
             pbar.set_postfix(
                 policy_loss=f"{policy_info['loss']:.3f}",
                 value_loss=f"{value_info['loss']:.3f}",
@@ -158,26 +155,29 @@ def A2C(
             )
             pbar.update(episode_steps)
 
+
+
     training_info = {
         "Returns": returns_history,
         "Policy Loss": loss_history["Policy"],
         "Value_Loss": loss_history["Value"],
+        "Eval": eval_history,
     }
-    fig = plot_training(training_info, window=20, poly=2, plot=plot)
+    plot_data = {k: v for k, v in training_info.items() if k != "Eval"}
+    fig = plot_training(plot_data, window=20, poly=2, plot=plot)
     if save_plot:
         if iteration is None:
             fig.savefig(save_plot / f"{config.run.name}_training.png")
         else:
             fig.savefig(save_plot / f"{config.run.name}_{iteration}_training.png")
-
     return eval_history
 
 
 if __name__ == "__main__":
-    name = "A2C"
+    name = "AC"
     save_path = Path("results/")
     save_path.mkdir(exist_ok=True)
     cfg = load_config(name)
     env = gym.make("CartPole-v1")
 
-    A2C(config=cfg, env=env, save_plot=save_path)
+    AC(config=cfg, env=env, save_plot=save_path)
