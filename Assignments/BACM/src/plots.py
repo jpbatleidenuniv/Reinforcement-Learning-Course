@@ -89,7 +89,7 @@ def plot_results(results: dict, window: int, poly: int, baseline_df: pd.DataFram
 
 
 if __name__ == "__main__":
-    with open("results/results_20260426_090218.pkl", "rb") as f:
+    with open("results/results_20260427_010921.pkl", "rb") as f:
         results = pickle.load(f)
 
     try:
@@ -99,4 +99,4 @@ if __name__ == "__main__":
         baseline_df = None
 
     fig = plot_results(results, window=20, poly=2, baseline_df=baseline_df)
-    fig.savefig("results/comparison.png", dpi=150)
+    fig.savefig("results/comparison1.png", dpi=150)
