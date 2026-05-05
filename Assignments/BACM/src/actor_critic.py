@@ -1,13 +1,18 @@
-import gymnasium as gym
-from tqdm import tqdm
 from pathlib import Path
-from agent import ReinforceAgent
+from tqdm import tqdm
+import gymnasium as gym
+from agent import A2CAgent, ACAgent
 from config import Config
+from reinforce import sample_monte_carlo
 from plots import plot_training
-from utils import load_config, sample_monte_carlo
+from utils import load_config
 
 
-def reinforce(config: Config, agent: ReinforceAgent, save_plot: Path | None = None):
+def actor_critic(
+    config: Config,
+    agent: ACAgent | A2CAgent,
+    save_plot: Path | None = None,
+):
     # Creating the environment and the score placeholders
     env = gym.make("CartPole-v1")
     eval_env = gym.make("CartPole-v1")
@@ -36,10 +41,10 @@ def reinforce(config: Config, agent: ReinforceAgent, save_plot: Path | None = No
                 eval_steps.append(total_steps)
 
             pbar.set_postfix(
-                total_steps=total_steps,
-                steps=info["step"],
-                loss=f"{info['loss']:.1f}",
+                loss=f"{info['loss']:.3f}",
+                value_loss=f"{info['value_loss']:.3f}",
                 ret=f"{info['episode_return']:.1f}",
+                steps=info["step"],
             )
     training_info = {"Returns": returns_history, "Loss": loss_history}
     eval_info = {"Timesteps": eval_steps, "Evaluation Returns": eval_history}
@@ -51,10 +56,10 @@ def reinforce(config: Config, agent: ReinforceAgent, save_plot: Path | None = No
 
 
 if __name__ == "__main__":
-    name = "base"
+    name = "base_ac"
     save_path = Path("results/")
     save_path.mkdir(exist_ok=True)
     cfg = load_config(name)
 
-    reinforce_agent = ReinforceAgent(cfg.agent, cfg.pi_nn)
-    reinforce(config=cfg, agent=reinforce_agent, save_plot=save_path)
+    ac_agent = A2CAgent(cfg.agent, cfg.pi_nn, value_network_cfg=cfg.v_nn)
+    actor_critic(cfg, ac_agent, save_plot=save_path)

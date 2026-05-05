@@ -14,12 +14,11 @@ nn:
     optim: AdamW
 
   value_network:
-    input_dim: 1
+    input_dim: 4
     output_dim: 1
-    features: [100]
-    lr: 1.e-3
+    features: [256, 256]
+    lr: 1.e-4
     optim: Adam
-
 
 agent:
   gamma: 0.99
