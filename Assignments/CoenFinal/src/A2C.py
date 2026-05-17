@@ -9,7 +9,7 @@ from plots import plot_training
 
 
 def load_config(name: str) -> Config:
-    config_path = f"{name}.yaml"
+    config_path = f"configs/{name}.yaml"
     with open(config_path) as f:
         config = yaml.safe_load(f)
         nn_cfg = NNConfig(**config["nn"])

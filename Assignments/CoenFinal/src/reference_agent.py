@@ -142,6 +142,7 @@ class PolicyAgent:
         assert T == len(objectives), f"T = {T}, len(G_T) = {len(objectives)}"
         log_probs = torch.stack(self.log_probs)
         loss = -1 * (log_probs * objectives).sum()
+        
         normalizer = torch.tensor(len(log_probs)).detach()
         loss /= normalizer
         loss.backward()
@@ -161,9 +162,7 @@ class ValueAgent:
     def __init__(self, agent_cfg: AgentConfig, nn_cfg: NNConfig, advantage=False) -> None:
         self.agent_cfg = agent_cfg
         self.nn_cfg = nn_cfg
-        # Value function always outputs a scalar regardless of the action-space size.
-        # Using nn_cfg.output_dim here would inherit the policy's action-space dimension
-        # and produce V_s tensors of wrong shape, causing a stack error in G_t.
+
         self.value = ValueNetwork(
             nn_cfg.input_dim,
             output_dim=1,
@@ -212,12 +211,11 @@ class ValueAgent:
         T = len(self.rewards)
         gamma = self.agent_cfg.gamma
 
-        # gammas[i] = γ^i, length n_steps  →  used to discount the n reward steps
         gammas = torch.pow(
             torch.tensor(gamma, dtype=torch.float32),
             torch.arange(self.n_steps, dtype=torch.float32),
         )
-        # Scalar bootstrap factor γ^n_steps (one step beyond the n reward steps)
+
         bootstrap_gamma = gamma ** self.n_steps
 
         g_t: list[Tensor] = []
@@ -232,8 +230,8 @@ class ValueAgent:
                 rewards = torch.tensor(
                     self.rewards[k: k + self.n_steps], dtype=torch.float32
                 )
-                discounted_r = gammas * rewards                              # y^0*r_k … y^{n-1}*r_{k+n-1}
-                discounted_v = bootstrap_gamma * self.V_s[k + self.n_steps]  # y^n * V(s_{k+n})
+                discounted_r = gammas * rewards                              
+                discounted_v = bootstrap_gamma * self.V_s[k + self.n_steps]  
                 g = discounted_r.sum() + discounted_v
 
             else:

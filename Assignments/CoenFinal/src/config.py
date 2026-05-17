@@ -19,14 +19,16 @@ class NNConfig:
     value_lr: float
     optim: str
     loss: str = "MSE"
+    lamb: float = 0.7
 
 
 @dataclass(frozen=True)
 class AgentConfig:
     nn_cfg: NNConfig
     gamma: float = 0.99
-    n_steps: int = 25
+    n_steps: int = 10
     epsilon: float = 0.1
+    k: int = 5
 
 
 @dataclass(frozen=True)

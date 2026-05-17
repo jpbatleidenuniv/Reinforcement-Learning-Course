@@ -7,7 +7,6 @@ from copy import deepcopy
 import torch.nn as nn
 import torch
 
-
 class PINetwork(nn.Module):
     def __init__(
         self,
@@ -37,34 +36,6 @@ class PINetwork(nn.Module):
         return self.output_layer(x)
 
 
-class ValueNetwork(nn.Module):
-    def __init__(
-                 self,
-                 input_dim: int,
-                 output_dim: int,
-                 features: Sequence[int],
-                ):
-        super().__init__()
-        self.input_layer = nn.Sequential(nn.Linear(input_dim, features[0]), nn.ReLU())
-        self.body = nn.ModuleList([
-                                    nn.Sequential(
-                                                  nn.Linear(features[i], features[i + 1]),
-                                                  nn.ReLU()
-                                                 )
-                                    for i in range(len(features) - 1)
-                                 ])
-        
-        self.output_layer = nn.Sequential(
-            nn.Linear(features[-1], output_dim)
-        )
-
-    def forward(self, x: Tensor) -> Tensor:
-        x = self.input_layer(x)
-        for layer in self.body:
-            x = layer(x)
-        return self.output_layer(x)
-
-
 class PolicyAgent:
     def __init__(self, agent_cfg: AgentConfig, nn_cfg: NNConfig) -> None:
         self.agent_cfg = agent_cfg
@@ -74,208 +45,126 @@ class PolicyAgent:
             nn_cfg.output_dim,
             nn_cfg.features,
         )
-
-        self.optimizer = self._build_optimizer(nn_cfg.optim)
-        # Define arrays of rollout monte carlo
-        self.ratios: list[Tensor] = []
-        self.rewards: list[float] = []
-        self.old_policy  = deepcopy(self.policy)
-
-    def _update_od_policy(self):
+        self.optimizer = torch.optim.AdamW(self.policy.parameters(), lr=nn_cfg.policy_lr)
         self.old_policy = deepcopy(self.policy)
 
-    def select_action(self, obs: NDArray) -> tuple[int, Tensor]:
+    def select_action(self, obs: list[NDArray]) -> tuple[int, Tensor]:
         """Stochastic action selection, used during training."""
-
         obs_tensor = torch.tensor(obs, dtype=torch.float32).unsqueeze(0)
-
-        pi_s: Tensor = self.policy(obs_tensor).squeeze(0)
-        
         old_pi_s: Tensor = self.old_policy(obs_tensor).squeeze(0)
-        
         dist = torch.distributions.Categorical(old_pi_s)
         action = dist.sample()
-
-        pi_sa = pi_s[action]
         old_pi_sa = old_pi_s[action].detach()
-        r_sa = pi_sa / old_pi_sa
-        return int(action.item()), r_sa
-    
+        return int(action.item()), old_pi_sa
+
+    def probability_new_policy(self, obs: list[Tensor], action: list[int]) -> Tensor:
+        """Returns pi_sa for the network currently being optimised."""
+        obs_tensor    = torch.stack(obs)                                    # [T, input_dim]
+        pi_s: Tensor  = self.policy(obs_tensor)                             # [T, output_dim]
+        action_tensor = torch.tensor(action, dtype=torch.long)
+        return pi_s[torch.arange(pi_s.size(0)), action_tensor]             # [T]
 
     def select_greedy_action(self, obs: NDArray) -> int:
-        """Greedy (deterministic) action selection. Used during evaluation."""
+        """Greedy action selection. Used during evaluation."""
         with torch.no_grad():
             pi_s: Tensor = self.policy(
                 torch.tensor(obs, dtype=torch.float32).unsqueeze(0)
             ).squeeze(0)
         return int(torch.argmax(pi_s).item())
-    
 
-    def _build_optimizer(self, optimizer: str):
-        registry = {
-            "AdamW": torch.optim.AdamW(self.policy.parameters(), lr=self.nn_cfg.policy_lr),
-            "Adam": torch.optim.Adam(self.policy.parameters(), lr=self.nn_cfg.policy_lr),
-            "RMSprop": torch.optim.RMSprop(self.policy.parameters(), lr=self.nn_cfg.policy_lr),
-        }
-        if optimizer not in registry:
-            raise ValueError(f"Unknown optimizer: {optimizer}")
-        return registry[optimizer]
+    def update_old_policy(self):
+        """Copies network being optimised into the old (behaviour) network."""
+        self.old_policy.load_state_dict(self.policy.state_dict())
 
-    @property
-    def _returns(self):
-        """Tensor of G_1 ... G_T"""
-        T = len(self.rewards)
-        rewards = torch.tensor(self.rewards)
-        gammas = torch.pow(
-            torch.tensor(self.agent_cfg.gamma, dtype=torch.float32),
-            torch.arange(T, dtype=torch.float32),
-        )
-        discounted = gammas * rewards
-
-        # Discounted cumulative returns from t=0 to t=T (episode length)
-        returns: Tensor = torch.cumsum(discounted.flip(0), dim=0).flip(0)
-        return returns
-
-    def update(self, advantage: Tensor):
+    def update(self, advantage: Tensor, ratios: Tensor):
         self.optimizer.zero_grad()
-        T = len(self.rewards)
+        T = len(ratios)
 
-        # advantage = advantage.detach()
+        advantage = advantage.detach()
+        advantage = (advantage - advantage.mean()) / (advantage.std() + 1e-8)
 
-        assert len(advantage) == T, (
-            f"The length of G_t is not the same as the episode length. "
-            f"This is in the 'update' method in PolicyAgent and G_t has a shape of {advantage.shape}"
-        )
-
-        # Update old to new policy for next iteration
-        self.old_policy = self.policy
-
-
-        ratios = torch.stack(self.ratios)
-        min_clip = torch.tensor((1-self.agent_cfg.epsilon), dtype=torch.float32)
-        max_clip = torch.tensor((1+self.agent_cfg.epsilon), dtype=torch.float32)
+        min_clip      = torch.tensor(1 - self.agent_cfg.epsilon, dtype=torch.float32)
+        max_clip      = torch.tensor(1 + self.agent_cfg.epsilon, dtype=torch.float32)
         clipped_ratios = torch.clip(ratios, min_clip, max_clip)
-        min_advantages = -torch.min(ratios*advantage, clipped_ratios*advantage)
-        assert len(min_advantages) == len(ratios), f"The length of the clipped and minimized ratios * advantages is not the same as the lenth of the ratios. Should be: len(r * A) : {len(min_advantages)} | len(ratios) : {len(ratios)}"
-        
+
         loss = torch.mean(-torch.min(ratios * advantage, clipped_ratios * advantage))
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.policy.parameters(), max_norm=0.5)
         self.optimizer.step()
 
-        info = {"loss": loss.item(), "step": T, "episode_return": sum(self.rewards)}
+        return {"loss": loss.item(), "step": T}
 
-        # We wipe the episode information for the next episode
-        self.ratios.clear()
-        self.rewards.clear()
 
-        return info
+############################################## VALUE AGENT ###########################################################
+
+
+class ValueNetwork(nn.Module):
+    def __init__(self, input_dim: int, output_dim: int, features: Sequence[int]):
+        super().__init__()
+        self.input_layer = nn.Sequential(nn.Linear(input_dim, features[0]), nn.ReLU())
+        self.body = nn.ModuleList([
+            nn.Sequential(nn.Linear(features[i], features[i + 1]), nn.ReLU())
+            for i in range(len(features) - 1)
+        ])
+        self.output_layer = nn.Linear(features[-1], output_dim)
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = self.input_layer(x)
+        for layer in self.body:
+            x = layer(x)
+        return self.output_layer(x)
 
 
 class ValueAgent:
     def __init__(self, agent_cfg: AgentConfig, nn_cfg: NNConfig) -> None:
         self.agent_cfg = agent_cfg
-        self.nn_cfg = nn_cfg
-        self.value = ValueNetwork(
-            nn_cfg.input_dim,
-            output_dim=1,
-            features=nn_cfg.features,
-        )
+        self.nn_cfg    = nn_cfg
+        self.value     = ValueNetwork(nn_cfg.input_dim, output_dim=1, features=nn_cfg.features)
+        self.optimizer = torch.optim.AdamW(self.value.parameters(), lr=self.nn_cfg.value_lr)
+        self.loss      = torch.nn.SmoothL1Loss(beta=1.0)
+        self.n_steps   = agent_cfg.n_steps
 
-        self.optimizer = self._build_optimizer(nn_cfg.optim)
-        self.loss = self._loss(nn_cfg.loss)
-        self.n_steps = agent_cfg.n_steps
+    def values(self, obs) -> Tensor:
+        return self.value(torch.tensor(obs, dtype=torch.float32).unsqueeze(0)).squeeze()
 
-        # Define arrays of rollout monte carlo
-        self.V_s: list[Tensor] = []
-        self.rewards: list[float] = []
-        self._a_t: list[Tensor] = []
+    def update(self, v_s: Tensor, r, done):
+        """
+        v_s  : [T+1] tensor WITH gradients.
+               v_s[:-1] are the state-value predictions V(s_0)...V(s_{T-1}).
+               v_s[-1]  is the terminal bootstrap value (zeroed by caller if
+               the episode ended naturally).
+        r    : list[float] of length T — rewards collected during rollout.
+        done : list[bool]  of length T — episode-end flags.
+        """
 
+        V_preds = v_s[:-1]      # [T]  — keeps grad, used in loss
+        v_s_d   = v_s.detach()  # [T+1] — no grad, used only inside target computation
 
-    def _build_optimizer(self, optimizer: str):
-        registry = {
-            "AdamW": torch.optim.AdamW(self.value.parameters(), lr=self.nn_cfg.value_lr),
-            "Adam": torch.optim.Adam(self.value.parameters(), lr=self.nn_cfg.value_lr),
-            "RMSprop": torch.optim.RMSprop(self.value.parameters(), lr=self.nn_cfg.value_lr),
-        }
-        if optimizer not in registry:
-            raise ValueError(f"Unknown optimizer: {optimizer}")
-        return registry[optimizer]
+        gamma   = self.agent_cfg.gamma
+        n_steps = self.agent_cfg.n_steps
+        T       = len(r)
 
-    def _loss(self, loss: str):
-        registry = {
-            "MSE": torch.nn.MSELoss(),
-            "Huber": torch.nn.HuberLoss(reduction='mean', delta=self.agent_cfg.n_steps)
-        }
-        if loss not in registry:
-            raise ValueError(f"Unknown loss function: {loss}")
-        return registry[loss]
+        r    = torch.tensor(r,    dtype=torch.float32)
+        done = torch.tensor(done, dtype=torch.bool)
 
-    def values(self, obs: Tensor) -> Tensor:
-        Q_s = self.value.forward(
-            torch.tensor(obs, dtype=torch.float32).unsqueeze(0)
-        ).squeeze()
-        return Q_s
-
-    def advantage(self):
-        T = len(self.rewards)
-        gamma = self.agent_cfg.gamma
-
-        # gammas[i] = y^i, length n_steps. used to discount the n reward steps
-        gammas = torch.pow(
-            torch.tensor(gamma, dtype=torch.float32),
-            torch.arange(self.n_steps, dtype=torch.float32),
-        )
-        # Scalar bootstrap factor y^n_steps (one step beyond the n reward steps)
-        bootstrap_gamma = gamma ** self.n_steps
-
-        # List with advantages
-        a_t: list[Tensor] = []
-
-        assert len(self.V_s) == T, (
-            f"V_s has length {len(self.V_s)}, while T has length {T}"
-        )
-        
-
-        """eed to doublecheck on how to compute the advantage. Right now I just take the rewards, but perhaps it might be better to take the estimated Q_sa
-        of the value network. Might not be needed though, so think about it"""
-        for k in range(T): 
-            if k + self.n_steps < T:
-
-                rewards = torch.tensor(
-                    self.rewards[k: k + self.n_steps], dtype=torch.float32
-                )
-                discounted_r = gammas * rewards                              # y^0*r_k … y^{n-1}*r_{k+n-1}
-                discounted_v = bootstrap_gamma * self.V_s[k + self.n_steps]  # y^n * V(s_{k+n})
-                g = discounted_r.sum() + discounted_v
-
+        targets = torch.zeros(T, dtype=torch.float32)
+        for t in range(T):
+            R       = 0.0
+            horizon = t  # will track the true end of the n-step window
+            for k in range(t, min(t + n_steps, T)):
+                R      += (gamma ** (k - t)) * r[k].item()
+                horizon = k + 1
+                if done[k]:
+                    break           # episode boundary — no bootstrap beyond here
             else:
-                # Tail: fewer than n steps remain. Use available rewards only, no bootstrap
-                rewards = torch.tensor(self.rewards[k:], dtype=torch.float32)
-                discounted_r = gammas[:len(rewards)] * rewards
-                g = torch.sum(discounted_r, dtype=torch.float32)
+                # n-step window completed without hitting a done — bootstrap
+                R += (gamma ** (horizon - t)) * v_s_d[horizon].item()
+            targets[t] = R
 
-            # Advantage
-            a = g - self.V_s[k].detach()
-            a_t.append(a.detach())
-
-        self._a_t = a_t
-        return torch.stack(a_t)
-
-    def update(self):
-        target = torch.stack(self._a_t)
-        pred = torch.stack(self.V_s)
-
-        l = self.loss(pred, target)/len(pred)
+        loss = self.loss(V_preds, targets)
         self.optimizer.zero_grad()
-        l.backward()
-
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.value.parameters(), max_norm=1.0)
         self.optimizer.step()
 
-        info = {"loss": l.detach().item()}
-
-        # We wipe the episode information for the next episode
-        self.V_s = []
-        self.rewards = []
-        self._g_t = []
-
-        return info
+        return {"loss": loss.item()}
