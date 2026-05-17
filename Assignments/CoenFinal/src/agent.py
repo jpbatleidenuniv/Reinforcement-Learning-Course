@@ -128,14 +128,6 @@ class ValueAgent:
         return self.value(torch.tensor(obs, dtype=torch.float32).unsqueeze(0)).squeeze()
 
     def update(self, v_s: Tensor, r, done):
-        """
-        v_s  : [T+1] tensor WITH gradients.
-               v_s[:-1] are the state-value predictions V(s_0)...V(s_{T-1}).
-               v_s[-1]  is the terminal bootstrap value (zeroed by caller if
-               the episode ended naturally).
-        r    : list[float] of length T — rewards collected during rollout.
-        done : list[bool]  of length T — episode-end flags.
-        """
 
         V_preds = v_s[:-1]      # [T]  — keeps grad, used in loss
         v_s_d   = v_s.detach()  # [T+1] — no grad, used only inside target computation
@@ -155,7 +147,7 @@ class ValueAgent:
                 R      += (gamma ** (k - t)) * r[k].item()
                 horizon = k + 1
                 if done[k]:
-                    break           # episode boundary — no bootstrap beyond here
+                    break           
             else:
                 # n-step window completed without hitting a done — bootstrap
                 R += (gamma ** (horizon - t)) * v_s_d[horizon].item()

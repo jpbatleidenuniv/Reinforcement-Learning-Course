@@ -6,8 +6,8 @@ from collections.abc import Sequence
 @dataclass(frozen=True)
 class RunConfig:
     name: str
-    n_eval_episodes: int = 100
-    n_steps: float = 5e5
+    n_eval_episodes: int = 10
+    n_steps: float = 250_000
 
 
 @dataclass(frozen=True)
@@ -19,7 +19,7 @@ class NNConfig:
     value_lr: float
     optim: str
     loss: str = "MSE"
-    lamb: float = 0.7
+    lamb: float = 0.9
 
 
 @dataclass(frozen=True)

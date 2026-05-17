@@ -7,13 +7,14 @@ import numpy as np
 from datetime import datetime
 from A2C import A2C
 from REINFORCE import reinforce
+from PPO import PPO
 from pathlib import Path
 from pathlib import Path
 from config import RunConfig, AgentConfig, NNConfig, Config
 
 
 def load_config(name: str) -> Config:
-    config_path = f"{name}.yaml"
+    config_path = f"configs/{name}.yaml"
     with open(config_path) as f:
         config = yaml.safe_load(f)
         nn_cfg = NNConfig(**config["nn"])
@@ -24,10 +25,10 @@ def load_config(name: str) -> Config:
 
 N_REPETITIONS = 5
 
-functions = {A2C: "A2C", reinforce: "REINFORCE"}
+functions = {PPO: "PPO_optimal"}
 save_path = Path("results/")
 save_path.mkdir(exist_ok=True)
-results = {"A2C": [], "AC": [], "REINFORCE": []}
+results = {"PPO_optimal": []}
 for func, name in functions.items():
     for repetition in range(N_REPETITIONS):
 
@@ -35,7 +36,12 @@ for func, name in functions.items():
         np.random.seed(repetition)
         cfg = load_config(name)
         env = gym.make("CartPole-v1")
-        r = func(config=cfg, env=env, save_plot=save_path, plot=False, iteration=repetition)
+        r = func(config=cfg, 
+                 env=env, 
+                 save_plot=save_path, 
+                 plot=False, 
+                 iteration=repetition, 
+                 n_trajectories=15)
 
         results[name].append(r)
 

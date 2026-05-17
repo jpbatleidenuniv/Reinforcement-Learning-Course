@@ -1,6 +1,6 @@
 run:
   name: ppo
-  n_eval_episodes: 100
+  n_eval_episodes: 10
   n_steps: 250_000
 
 nn:

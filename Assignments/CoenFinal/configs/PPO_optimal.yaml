@@ -1,11 +1,8 @@
 run:
-  name: reinforce
-  max_steps_episode: 10000
-  n_episodes: 500
-  n_eval_timesteps: 5000
+  name: ppo
   n_eval_episodes: 100
-  n_steps: 500000
-  
+  n_steps: 250_000
+
 nn:
   input_dim: 4
   output_dim: 2
@@ -13,7 +10,10 @@ nn:
   value_lr: 0.0001
   policy_lr: 0.00005
   optim: AdamW
+  lamb: 0.99
 
 agent:
   gamma: 0.99
   n_steps: 10
+  epsilon: 0.05
+  k: 10
