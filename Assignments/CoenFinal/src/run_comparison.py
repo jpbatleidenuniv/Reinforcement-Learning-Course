@@ -5,16 +5,15 @@ import torch
 import numpy as np
 
 from datetime import datetime
-from A2C import A2C
-from REINFORCE import reinforce
 from PPO import PPO
 from pathlib import Path
 from pathlib import Path
 from config import RunConfig, AgentConfig, NNConfig, Config
+from plot_comparison import plot_main
 
 
 def load_config(name: str) -> Config:
-    config_path = f"configs/{name}.yaml"
+    config_path = f"{name}.yaml"
     with open(config_path) as f:
         config = yaml.safe_load(f)
         nn_cfg = NNConfig(**config["nn"])
@@ -50,4 +49,5 @@ with open(save_path / f"results_{timestamp}.pkl", "wb") as f:
     pickle.dump(results, f)
 
 print(f"Saved results to results/results_{timestamp}.pkl")
+plot_main(data_file=save_path / f"results_{timestamp}.pkl", figure_file=f"comparison_{timestamp}.png")
 

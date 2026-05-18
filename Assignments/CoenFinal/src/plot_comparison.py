@@ -56,24 +56,28 @@ def plot_comparison(mean_ppo: np.ndarray):
     plt.legend(fontsize=14)
     plt.grid(alpha=0.3)
 
-if __name__ == "__main__":
-    ppo_results = load_results("results/results_20260517_160518.pkl")['PPO_optimal']
-    ass3_results = load_results("results/results_20260427_204003.pkl")
+def plot_main(data_file: str, figure_file: str="comparison.png"):
+
+    ppo_results = load_results(data_file)['PPO_optimal']
+    ass3_results = load_results("results_20260427_204003.pkl")
     a2c_results = ass3_results['A2C']
     reinforce_results = ass3_results['REINFORCE']
 
-    ass2_results = np.load("results/Naive_all_returns.npy", allow_pickle=True)
-    ass2_steps = np.load("results/Naive_all_timesteps.npy", allow_pickle=True)
+    ass2_results = np.load("Naive_all_returns.npy", allow_pickle=True)
+    ass2_steps = np.load("Naive_all_timesteps.npy", allow_pickle=True)
     mask = ass2_steps <= 250000
 
     means = extract_mean_rewards({
-        "PPO Optimal": ppo_results, 
-        "A2C": a2c_results,
-        "REINFORCE": reinforce_results
-    })
+                                 "PPO Optimal": ppo_results, 
+                                 "A2C": a2c_results,
+                                 "REINFORCE": reinforce_results
+                                 })
     means["DQN"] = ass2_results[mask].reshape(mask.shape[0], -1)
 
     plot_comparison(means)
 
     plt.tight_layout()
     plt.show()
+
+if __name__ == "__main__":
+    plot_main(data_file="results/results_20260517_160518.pkl", figure_file="comparison.png")

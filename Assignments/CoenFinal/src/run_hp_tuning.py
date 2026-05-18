@@ -9,10 +9,11 @@ from PPO import PPO
 from pathlib import Path
 from copy import deepcopy
 from config import RunConfig, AgentConfig, NNConfig, Config
+from plot_hp_tuning import plot_main
 
 
 def load_base_config(name: str) -> dict:
-    with open(f"configs/{name}.yaml") as f:
+    with open(f"{name}.yaml") as f:
         return yaml.safe_load(f)
 
 
@@ -21,7 +22,6 @@ def make_config(base: dict, k: int, lamb: float, epsilon: float) -> Config:
     nn_dict = dict(base["nn"])
     agent_dict = dict(base["agent"])
 
-    # Overwrite ablation parameters
     nn_dict["lamb"] = lamb
     agent_dict["k"] = k
     agent_dict["epsilon"] = epsilon
@@ -35,13 +35,13 @@ def make_config(base: dict, k: int, lamb: float, epsilon: float) -> Config:
     run_cfg = RunConfig(**base["run"])
 
     return Config(
-        run=run_cfg,
-        nn=nn_cfg,
-        agent=agent_cfg
-    )
+                  run=run_cfg,
+                  nn=nn_cfg,
+                  agent=agent_cfg
+                  )
 
 
-# Ablation settings
+# Varying settings
 N_TRAJ_VALUES  = [1, 5, 15]   # n_trajectories: number of episodes collected per update
 LAMBDA_VALUES  = [0.7, 0.9, 0.99]
 EPSILON_VALUES = [0.05, 0.1, 0.2]
@@ -65,35 +65,35 @@ results: dict[str, list] = {}
 
 experiments = []
 
-# Ablate n_trajectories (number of episodes collected before each parameter update)
+# vary n_trajectories 
 for n_traj in N_TRAJ_VALUES:
     experiments.append({
-        "name":   f"n_traj: {n_traj}",
-        "n_traj": n_traj,
-        "k":      BASE_K,
-        "lamb":   BASE_LAMBDA,
-        "epsilon": BASE_EPSILON,
-    })
+                        "name":   f"n_traj: {n_traj}",
+                        "n_traj": n_traj,
+                        "k":      BASE_K,
+                        "lamb":   BASE_LAMBDA,
+                        "epsilon": BASE_EPSILON,
+                        })
 
-# Ablate lambda
+# vary lambda
 for lamb in LAMBDA_VALUES:
     experiments.append({
-        "name":   f"lam: {lamb}",
-        "n_traj": BASE_N_TRAJ,
-        "k":      BASE_K,
-        "lamb":   lamb,
-        "epsilon": BASE_EPSILON,
-    })
+                        "name":   f"lam: {lamb}",
+                        "n_traj": BASE_N_TRAJ,
+                        "k":      BASE_K,
+                        "lamb":   lamb,
+                        "epsilon": BASE_EPSILON,
+                        })
 
-# Ablate epsilon
+# vary epsilon
 for epsilon in EPSILON_VALUES:
     experiments.append({
-        "name":   f"eps: {epsilon}",
-        "n_traj": BASE_N_TRAJ,
-        "k":      BASE_K,
-        "lamb":   BASE_LAMBDA,
-        "epsilon": epsilon,
-    })
+                        "name":   f"eps: {epsilon}",
+                        "n_traj": BASE_N_TRAJ,
+                        "k":      BASE_K,
+                        "lamb":   BASE_LAMBDA,
+                        "epsilon": epsilon,
+                        })
 
 total = len(experiments) * N_REPETITIONS
 done  = 0
@@ -120,24 +120,23 @@ for exp in experiments:
         torch.manual_seed(rep)
         np.random.seed(rep)
 
-        # n_traj is a PPO-call argument, not a Config field — pass base k here
         cfg = make_config(
-            deepcopy(base_cfg_dict),
-            k=k,
-            lamb=lamb,
-            epsilon=epsilon,
-        )
+                          deepcopy(base_cfg_dict),
+                          k=k,
+                          lamb=lamb,
+                          epsilon=epsilon,
+                          )
 
         env = gym.make("CartPole-v1")
 
         eval_history = PPO(
-            config=cfg,
-            env=env,
-            save_plot=None,
-            plot=False,
-            iteration=rep,
-            n_trajectories=n_traj,   
-        )
+                           config=cfg,
+                           env=env,
+                           save_plot=None,
+                           plot=False,
+                           iteration=rep,
+                           n_trajectories=n_traj,   
+                           )
 
         results[run_key].append(eval_history)
 
@@ -147,7 +146,7 @@ for exp in experiments:
         print(f"  [{done}/{total}] rep {rep + 1}/{N_REPETITIONS} done")
 
 
-# ── Save results ──────────────────────────────────────────────────────────────
+#  Save results 
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 out_path  = save_path / f"ablation_independent_{timestamp}.pkl"
 
@@ -156,17 +155,17 @@ with open(out_path, "wb") as f:
 
 print(f"\nSaved ablation results to {out_path}")
 
-# ── Summary table ─────────────────────────────────────────────────────────────
+# Summary table 
 print(f"\n{'Run key':<25} {'Mean final return':>20} {'Std':>10}")
 print("-" * 60)
 
 for run_key, reps in results.items():
     # Each rep is a list of eval dicts; take the last checkpoint's mean return
     final_means = [
-        rep[-1]["mean"]
-        for rep in reps
-        if rep  # guard against empty eval histories
-    ]
+                   rep[-1]["mean"]
+                   for rep in reps
+                   if rep 
+                   ]
 
     if final_means:
         print(
@@ -174,3 +173,5 @@ for run_key, reps in results.items():
             f"{np.mean(final_means):>20.1f}"
             f"{np.std(final_means):>10.1f}"
         )
+
+plot_main(data_file=out_path, figure_file="hp_tuning.png")

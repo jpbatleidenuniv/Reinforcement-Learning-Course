@@ -33,7 +33,7 @@ def extract_mean_rewards(results: dict) -> np.ndarray:
     return mean_rewards  # shape = (5 runs, 50 episodes)
 
 
-def plot_all_ablations(ablation_data: dict):
+def plot_all_ablations(ablation_data: dict, final_file: str=None) -> None:
     """
     ablation_data format:
     {
@@ -100,53 +100,49 @@ def plot_all_ablations(ablation_data: dict):
     plt.tight_layout()
     plt.show()
 
+    if final_file is not None:
+        fig.savefig(final_file, dpi=300, bbox_inches='tight')
 
-if __name__ == "__main__":
+def plot_main(data_file: str, figure_file: str="hp_tuning.png"):
 
     # Load results
-    results = load_results("results/ablation_independent_20260517_114334.pkl")
+    results = load_results(data_file)
 
     # Organize raw data
-    n_traj_results = {
-        1: results["n_traj: 1"],
-        5: results["n_traj: 5"],
-        15: results["n_traj: 15"]
-    }
+    n_traj_results = {1: results["n_traj: 1"], 5: results["n_traj: 5"], 15: results["n_traj: 15"]}
 
-    lambda_results = {
-        0.7: results["lam: 0.7"],
-        0.9: results["lam: 0.9"],
-        0.99: results["lam: 0.99"]
-    }
+    lambda_results = {0.7: results["lam: 0.7"], 0.9: results["lam: 0.9"], 0.99: results["lam: 0.99"]}
 
-    epsilon_results = {
-        0.05: results["eps: 0.05"],
-        0.1: results["eps: 0.1"],
-        0.2: results["eps: 0.2"]
-    }
+    epsilon_results = {0.05: results["eps: 0.05"], 0.1: results["eps: 0.1"], 0.2: results["eps: 0.2"]}
 
     # Convert to arrays of shape (runs, episodes)
     n_traj_results = {
-        k: extract_mean_rewards(v)
-        for k, v in n_traj_results.items()
-    }
+                      k: extract_mean_rewards(v)
+                      for k, v in n_traj_results.items()
+                     }
 
     lambda_results = {
-        k: extract_mean_rewards(v)
-        for k, v in lambda_results.items()
-    }
+                      k: extract_mean_rewards(v)
+                      for k, v in lambda_results.items()
+                    }
 
     epsilon_results = {
-        k: extract_mean_rewards(v)
-        for k, v in epsilon_results.items()
-    }
+                       k: extract_mean_rewards(v)
+                       for k, v in epsilon_results.items()
+                      }
 
     # Combine all ablations
     ablation_data = {
-        "n_trajectories": n_traj_results,
-        "lambda": lambda_results,
-        "epsilon": epsilon_results
-    }
+                    "n_trajectories": n_traj_results,
+                    "lambda": lambda_results,
+                    "epsilon": epsilon_results
+                    }
 
     # Plot
-    plot_all_ablations(ablation_data)
+    plot_all_ablations(ablation_data, final_file=figure_file)
+
+
+if __name__ == "__main__":
+
+    plot_main(data_file="results/ablation_independent_20260517_114334.pkl")
+    

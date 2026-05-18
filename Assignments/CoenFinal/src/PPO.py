@@ -21,8 +21,7 @@ def load_config(name: str) -> Config:
     return Config(run=run_cfg, nn=nn_cfg, agent=agent_cfg)
 
 
-# ── Buffer ────────────────────────────────────────────────────────────────────
-
+# Bufffer
 class Buffer:
     def __init__(self):
         self.states:         list[torch.Tensor] = []
@@ -151,11 +150,13 @@ def PPO(
             batch_steps = 0
 
             for traj_idx in range(n_trajectories):
+                # Seeding
                 if iteration is not None:
                     seed = iteration * 10_000 + update_count * n_trajectories + traj_idx
                 else:
                     seed = update_count * n_trajectories + traj_idx
-
+                
+                # Sample trajectory and store in buffer
                 buf = sample_trajectory(env, policy_agent, seed)
                 buffers.append(buf)
                 batch_steps += len(buf)
@@ -204,14 +205,15 @@ def PPO(
                     value_losses.append(v_info["loss"])
 
                 # Policy update over the whole batch (all trajectories concatenated)
-                all_advantages = torch.cat(batch_advantages)   # [total_T]
-                all_ratios     = torch.cat(batch_ratios)       # [total_T]
+                all_advantages = torch.cat(batch_advantages)   
+                all_ratios     = torch.cat(batch_ratios)       
                 policy_info    = policy_agent.update(advantage=all_advantages, ratios=all_ratios)
 
             # Bookkeeping 
             total_steps  += batch_steps
             update_count += 1
 
+            # Update old policy with new weights after K epochs of updates
             policy_agent.update_old_policy()
 
             mean_value_loss = float(np.mean(value_losses))
@@ -222,10 +224,10 @@ def PPO(
                 eval_info["step"] = total_steps
                 eval_history.append(eval_info)
                 tqdm.write(
-                    f"[Eval @ {total_steps:,} steps]  "
-                    f"mean return = {eval_info['mean']:.1f} ± {eval_info['std']:.1f}  "
-                    f"(over {n_eval_episodes} greedy episodes)"
-                )
+                           f"[Eval @ {total_steps:,} steps]  "
+                           f"mean return = {eval_info['mean']:.1f} ± {eval_info['std']:.1f}  "
+                           f"(over {n_eval_episodes} greedy episodes)"
+                           )
                 next_eval_at += eval_interval
 
             returns_history.append(batch_steps)
@@ -233,19 +235,20 @@ def PPO(
             loss_history["Value"].append(mean_value_loss)
 
             pbar.set_postfix(
-                policy_loss = f"{policy_info['loss']:.3f}",
-                value_loss  = f"{mean_value_loss:.3f}",
-                update      = update_count,
-                steps       = batch_steps,
-            )
+                             policy_loss = f"{policy_info['loss']:.3f}",
+                             value_loss  = f"{mean_value_loss:.3f}",
+                             update      = update_count,
+                             steps       = batch_steps,
+                            )
             pbar.update(batch_steps)
 
     training_info = {
-        "Returns":     returns_history,
-        "Policy Loss": loss_history["Policy"],
-        "Value_Loss":  loss_history["Value"],
-        "Eval":        eval_history,
-    }
+                    "Returns":     returns_history,
+                    "Policy Loss": loss_history["Policy"],
+                    "Value_Loss":  loss_history["Value"],
+                    "Eval":        eval_history,
+                    }
+    
     plot_data = {k: v for k, v in training_info.items() if k != "Eval"}
     fig = plot_training(plot_data, window=20, poly=2, plot=plot)
     if save_plot:

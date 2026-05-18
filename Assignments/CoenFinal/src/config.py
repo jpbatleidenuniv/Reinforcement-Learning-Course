@@ -27,8 +27,8 @@ class AgentConfig:
     nn_cfg: NNConfig
     gamma: float = 0.99
     n_steps: int = 10
-    epsilon: float = 0.1
-    k: int = 5
+    epsilon: float = 0.2
+    k: int = 10
 
 
 @dataclass(frozen=True)

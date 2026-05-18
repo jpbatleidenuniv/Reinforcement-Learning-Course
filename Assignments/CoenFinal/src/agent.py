@@ -59,10 +59,10 @@ class PolicyAgent:
 
     def probability_new_policy(self, obs: list[Tensor], action: list[int]) -> Tensor:
         """Returns pi_sa for the network currently being optimised."""
-        obs_tensor    = torch.stack(obs)                                    # [T, input_dim]
-        pi_s: Tensor  = self.policy(obs_tensor)                             # [T, output_dim]
+        obs_tensor    = torch.stack(obs)                                   
+        pi_s: Tensor  = self.policy(obs_tensor)                            
         action_tensor = torch.tensor(action, dtype=torch.long)
-        return pi_s[torch.arange(pi_s.size(0)), action_tensor]             # [T]
+        return pi_s[torch.arange(pi_s.size(0)), action_tensor]            
 
     def select_greedy_action(self, obs: NDArray) -> int:
         """Greedy action selection. Used during evaluation."""
@@ -73,7 +73,7 @@ class PolicyAgent:
         return int(torch.argmax(pi_s).item())
 
     def update_old_policy(self):
-        """Copies network being optimised into the old (behaviour) network."""
+        """Copies network being optimised into the old network."""
         self.old_policy.load_state_dict(self.policy.state_dict())
 
     def update(self, advantage: Tensor, ratios: Tensor):
@@ -129,8 +129,8 @@ class ValueAgent:
 
     def update(self, v_s: Tensor, r, done):
 
-        V_preds = v_s[:-1]      # [T]  — keeps grad, used in loss
-        v_s_d   = v_s.detach()  # [T+1] — no grad, used only inside target computation
+        V_preds = v_s[:-1]      
+        v_s_d   = v_s.detach()  # Only use grad in target
 
         gamma   = self.agent_cfg.gamma
         n_steps = self.agent_cfg.n_steps
@@ -141,15 +141,15 @@ class ValueAgent:
 
         targets = torch.zeros(T, dtype=torch.float32)
         for t in range(T):
-            R       = 0.0
-            horizon = t  # will track the true end of the n-step window
+            R = 0.0
+            horizon = t  
             for k in range(t, min(t + n_steps, T)):
-                R      += (gamma ** (k - t)) * r[k].item()
+                R += (gamma ** (k - t)) * r[k].item()
                 horizon = k + 1
                 if done[k]:
                     break           
             else:
-                # n-step window completed without hitting a done — bootstrap
+                # n-step window completed without hitting a done state, bootstrap from v_s_d
                 R += (gamma ** (horizon - t)) * v_s_d[horizon].item()
             targets[t] = R
 
